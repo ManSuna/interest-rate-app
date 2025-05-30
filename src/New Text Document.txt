@@ -6,7 +6,6 @@ npm install formik yup react-datepicker
 
 npm install react-bootstrap bootstrap
 
-.tab-content-wrapper {
-  text-align: left;
-  padding-left: 1rem;
-}
+npm install react-bootstrap bootstrap
+
+import 'bootstrap/dist/css/bootstrap.min.css';
