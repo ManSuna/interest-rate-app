@@ -1,17 +1,22 @@
-npm install formik yup react-bootstrap bootstrap react-datepicker react-tabs
+/* src/components/ConfirmModal.css */
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.3); /* transparent dark overlay */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
 
-npm install formik yup react-bootstrap bootstrap react-datepicker react-tabs
-
-npm install formik yup react-datepicker
-
-npm install react-bootstrap bootstrap
-
-npm install react-bootstrap bootstrap
-
-import 'bootstrap/dist/css/bootstrap.min.css';
-
-
-.blur-backdrop {
-  backdrop-filter: blur(4px);
-  background-color: rgba(0, 0, 0, 0.2);
+.modal-box {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  min-width: 300px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 11;
 }

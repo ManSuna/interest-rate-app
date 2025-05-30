@@ -1,33 +1,21 @@
 // src/components/ConfirmModal.js
 import React from 'react';
-import { Modal, Button } from 'react-bootstrap';
+import './ConfirmModal.css';
 
 function ConfirmModal({ show, title, message, onConfirm, onCancel }) {
+  if (!show) return null;
+
   return (
-    <Modal
-      show={show}
-      onHide={onCancel}
-      backdrop="static"  // prevent click outside to dismiss
-      keyboard={false}   // disable ESC key closing
-      centered
-    >
-      <Modal.Header closeButton>
-        <Modal.Title>{title}</Modal.Title>
-      </Modal.Header>
-
-      <Modal.Body>
+    <div className="modal-overlay">
+      <div className="modal-box">
+        <h5>{title}</h5>
         <p style={{ whiteSpace: 'pre-wrap' }}>{message}</p>
-      </Modal.Body>
-
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button variant="primary" onClick={onConfirm}>
-          OK
-        </Button>
-      </Modal.Footer>
-    </Modal>
+        <div className="d-flex justify-content-end mt-3">
+          <button className="btn btn-secondary me-2" onClick={onCancel}>Cancel</button>
+          <button className="btn btn-primary" onClick={onConfirm}>OK</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
