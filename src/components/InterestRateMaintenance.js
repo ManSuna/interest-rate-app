@@ -55,4 +55,30 @@ function InterestRateMaintenance() {
       <table className="table table-bordered">
         <thead>
           <tr>
-            <th>Intere
+            <th>Interest Rate</th>
+            <th>Effective Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((entry, index) => (
+            <tr key={index}>
+              <td title="Enter the percentage rate in decimal format">{entry.interestRate}</td>
+              <td title="Enter or select the Business Date">{entry.effectiveDate}</td>
+              <td>
+                <button
+                  className="btn btn-danger btn-sm"
+                  onClick={() => handleDelete(index)}
+                >
+                  Delete
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export default InterestRateMaintenance;
