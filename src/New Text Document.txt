@@ -6,16 +6,7 @@ npm install formik yup react-datepicker
 
 npm install react-bootstrap bootstrap
 
-
-<div className="mb-3">
-  <label className="form-label">Start Date</label>
-  <DatePicker
-    selected={values.startDate ? new Date(values.startDate) : null}
-    onChange={date => setFieldValue('startDate', date)}
-    className="form-control"
-    dateFormat="yyyy-MM-dd"
-    placeholderText="YYYY-MM-DD"
-    title="Enter or select the Start Date for Cycle"
-  />
-  <ErrorMessage name="startDate" component="div" className="text-danger" />
-</div>
+.tab-content-wrapper {
+  text-align: left;
+  padding-left: 1rem;
+}
