@@ -93,13 +93,13 @@ function InterestRateMaintenance() {
   }}
 />
 
-      <ConfirmModal
-        show={modal.show}
-        title={modal.title}
-        message={modal.message}
-        onConfirm={modal.onConfirm}
-        onCancel={() => setModal({ ...modal, show: false })}
-      />
+<ConfirmModal
+  show={modal.show}
+  title={modal.title}
+  message={modal.message}
+  onConfirm={modal.onConfirm}
+  onCancel={() => setModal({ ...modal, show: false })}
+/>
     </div>
   );
 }
