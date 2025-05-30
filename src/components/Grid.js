@@ -24,7 +24,6 @@ function Grid({ columns, data, onDelete, tooltips }) {
 
 const handleAddRow = () => {
   const newErrors = {};
-
   if (!newRow.interestRate || !/^\d+(\.\d{1,2})?$/.test(newRow.interestRate)) {
     newErrors.interestRate = 'Must be decimal (e.g. 5.25)';
   }
@@ -45,10 +44,8 @@ const handleAddRow = () => {
 
   if (Object.keys(newErrors).length > 0) return;
 
-  // Add new row
-  data.push({ ...newRow });
+  onAdd(newRow); // ✅ Trigger confirm dialog
   setNewRow({});
-  setErrors({});
 };
 
   return (
