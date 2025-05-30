@@ -4,3 +4,4 @@ npm install formik yup react-bootstrap bootstrap react-datepicker react-tabs
 
 npm install formik yup react-datepicker
 
+npm install react-bootstrap bootstrap
