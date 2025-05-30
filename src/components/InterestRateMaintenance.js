@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import ConfirmModal from './ConfirmModal';
 import Grid from './Grid';
 
+
+
+
+
 function InterestRateMaintenance() {
   const [data, setData] = useState([
     { interestRate: '5.00', effectiveDate: '2025/04/02' },
@@ -77,12 +81,17 @@ function InterestRateMaintenance() {
   return (
     <div>
       <Grid
-        columns={columns}
-        data={data}
-        onAdd={handleAdd}
-        onDelete={handleDelete}
-        tooltips={tooltips}
-      />
+  columns={[
+    { key: 'interestRate', label: 'Interest Rate' },
+    { key: 'effectiveDate', label: 'Effective Date' },
+  ]}
+  data={data}
+  onDelete={handleDelete}
+  tooltips={{
+    interestRate: 'Enter the percentage rate in decimal format',
+    effectiveDate: 'Enter or select the Business Date',
+  }}
+/>
 
       <ConfirmModal
         show={modal.show}
