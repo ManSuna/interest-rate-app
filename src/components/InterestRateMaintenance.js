@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import ConfirmModal from './ConfirmModal';
+import Grid from './Grid';
 
 function InterestRateMaintenance() {
   const [data, setData] = useState([
@@ -12,71 +14,83 @@ function InterestRateMaintenance() {
     { interestRate: '6.75', effectiveDate: '2002/03/15' },
   ]);
 
-  const validateRate = (rate) => /^\d+(\.\d{1,2})?$/.test(rate);
-  const validateDate = (date) => /^\d{4}\/\d{2}\/\d{2}$/.test(date);
+  const [modal, setModal] = useState({
+    show: false,
+    message: '',
+    title: '',
+    onConfirm: () => {},
+  });
+
+  const [newRow, setNewRow] = useState(null);
+
+  const openConfirmModal = ({ title, message, onConfirm }) => {
+    setModal({ show: true, title, message, onConfirm });
+  };
 
   const handleAdd = () => {
     const interestRate = prompt("Enter the Interest Rate (e.g. 5.25):");
     const effectiveDate = prompt("Enter the Effective Date (YYYY/MM/DD):");
 
-    if (!interestRate || !validateRate(interestRate)) {
-      alert("Invalid Interest Rate. Must be decimal with up to 2 places.");
+    const validRate = /^\d+(\.\d{1,2})?$/.test(interestRate);
+    const validDate = /^\d{4}\/\d{2}\/\d{2}$/.test(effectiveDate);
+
+    if (!validRate || !validDate) {
+      alert("Validation failed. Make sure Interest Rate is decimal and Date is in YYYY/MM/DD format.");
       return;
     }
 
-    if (!effectiveDate || !validateDate(effectiveDate)) {
-      alert("Invalid Date Format. Must be YYYY/MM/DD.");
-      return;
-    }
+    const newEntry = { interestRate, effectiveDate };
+    setNewRow(newEntry);
 
-    const confirmAdd = window.confirm(
-      `Are you sure you want to add below Interest Rate and Effective Date?\nInterest Rate: ${interestRate}\nEffective Date: ${effectiveDate}`
-    );
-
-    if (confirmAdd) {
-      setData([...data, { interestRate, effectiveDate }]);
-    }
+    openConfirmModal({
+      title: 'Confirm Add',
+      message: `Are you sure you want to add the following?\nInterest Rate: ${interestRate}\nEffective Date: ${effectiveDate}`,
+      onConfirm: () => {
+        setData(prev => [...prev, newEntry]);
+        setModal({ ...modal, show: false });
+      }
+    });
   };
 
   const handleDelete = (index) => {
     const item = data[index];
-    const confirmDelete = window.confirm(
-      `Are you sure you want to delete below Interest Rate and Effective Date?\nInterest Rate: ${item.interestRate}\nEffective Date: ${item.effectiveDate}`
-    );
+    openConfirmModal({
+      title: 'Confirm Delete',
+      message: `Are you sure you want to delete the following?\nInterest Rate: ${item.interestRate}\nEffective Date: ${item.effectiveDate}`,
+      onConfirm: () => {
+        setData(prev => prev.filter((_, i) => i !== index));
+        setModal({ ...modal, show: false });
+      }
+    });
+  };
 
-    if (confirmDelete) {
-      setData(data.filter((_, i) => i !== index));
-    }
+  const columns = [
+    { key: 'interestRate', label: 'Interest Rate' },
+    { key: 'effectiveDate', label: 'Effective Date' }
+  ];
+
+  const tooltips = {
+    interestRate: 'Enter the percentage rate in decimal format',
+    effectiveDate: 'Enter or select the Business Date'
   };
 
   return (
     <div>
-      <button className="btn btn-success mb-3" onClick={handleAdd}>Add Row</button>
-      <table className="table table-bordered">
-        <thead>
-          <tr>
-            <th>Interest Rate</th>
-            <th>Effective Date</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((entry, index) => (
-            <tr key={index}>
-              <td title="Enter the percentage rate in decimal format">{entry.interestRate}</td>
-              <td title="Enter or select the Business Date">{entry.effectiveDate}</td>
-              <td>
-                <button
-                  className="btn btn-danger btn-sm"
-                  onClick={() => handleDelete(index)}
-                >
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <Grid
+        columns={columns}
+        data={data}
+        onAdd={handleAdd}
+        onDelete={handleDelete}
+        tooltips={tooltips}
+      />
+
+      <ConfirmModal
+        show={modal.show}
+        title={modal.title}
+        message={modal.message}
+        onConfirm={modal.onConfirm}
+        onCancel={() => setModal({ ...modal, show: false })}
+      />
     </div>
   );
 }
