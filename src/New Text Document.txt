@@ -9,3 +9,9 @@ npm install react-bootstrap bootstrap
 npm install react-bootstrap bootstrap
 
 import 'bootstrap/dist/css/bootstrap.min.css';
+
+
+.blur-backdrop {
+  backdrop-filter: blur(4px);
+  background-color: rgba(0, 0, 0, 0.2);
+}
