@@ -28,15 +28,15 @@ function InterestRateMaintenance() {
     });
   };
 
-  const handleAdd = (newRow) => {
-    openConfirmModal({
-      title: 'Confirm Add',
-      message: `Are you sure you want to add:\nInterest Rate: ${newRow.interestRate}\nEffective Date: ${newRow.effectiveDate}`,
-      onConfirm: () => {
-        setData(prev => [...prev, newRow]);
-      }
-    });
-  };
+const handleAdd = (newRow) => {
+  openConfirmModal({
+    title: 'Confirm Add',
+    message: `Are you sure you want to add:\nInterest Rate: ${newRow.interestRate}\nEffective Date: ${newRow.effectiveDate}`,
+    onConfirm: () => {
+      setData(prev => [...prev, newRow]);
+    }
+  });
+};
 
   const handleDelete = (index) => {
     const row = data[index];
