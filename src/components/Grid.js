@@ -22,12 +22,34 @@ function Grid({ columns, data, onDelete, tooltips }) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleAddRow = () => {
-    if (!validateRow()) return;
-    data.push({ ...newRow });
-    setNewRow({});
-    setErrors({});
-  };
+const handleAddRow = () => {
+  const newErrors = {};
+
+  if (!newRow.interestRate || !/^\d+(\.\d{1,2})?$/.test(newRow.interestRate)) {
+    newErrors.interestRate = 'Must be decimal (e.g. 5.25)';
+  }
+
+  if (!newRow.effectiveDate || !/^\d{4}\/\d{2}\/\d{2}$/.test(newRow.effectiveDate)) {
+    newErrors.effectiveDate = 'Date must be in CCYY/MM/DD format';
+  }
+
+  const isDuplicate = data.some(
+    (row) => row.effectiveDate === newRow.effectiveDate
+  );
+
+  if (isDuplicate) {
+    newErrors.effectiveDate = 'This effective date is already present';
+  }
+
+  setErrors(newErrors);
+
+  if (Object.keys(newErrors).length > 0) return;
+
+  // Add new row
+  data.push({ ...newRow });
+  setNewRow({});
+  setErrors({});
+};
 
   return (
     <div>
