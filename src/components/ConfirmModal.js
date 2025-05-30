@@ -1,13 +1,14 @@
+// src/components/ConfirmModal.js
 import React from 'react';
 import { Modal, Button } from 'react-bootstrap';
-import './ConfirmModal.css'; // custom styles
 
 function ConfirmModal({ show, title, message, onConfirm, onCancel }) {
   return (
     <Modal
       show={show}
       onHide={onCancel}
-      backdropClassName="blur-backdrop"
+      backdrop="static"  // prevent click outside to dismiss
+      keyboard={false}   // disable ESC key closing
       centered
     >
       <Modal.Header closeButton>
