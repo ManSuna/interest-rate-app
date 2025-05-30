@@ -28,3 +28,27 @@ function Grid({ columns, data, onAdd, onDelete, tooltips = {} }) {
             data.map((row, rowIndex) => (
               <tr key={rowIndex}>
                 {columns.map(col => (
+                  <td key={col.key} title={tooltips[col.key] || ''}>
+                    {row[col.key]}
+                  </td>
+                ))}
+                {onDelete && (
+                  <td>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => onDelete(rowIndex)}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export default Grid;
