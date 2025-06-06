@@ -1,22 +1,266 @@
-/* src/components/ConfirmModal.css */
-.modal-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.3); /* transparent dark overlay */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 10;
-}
+// App.js
+import React, { useState } from 'react';
+import Tabs from './components/Tabs';
+import ParticipantGrid from './components/ParticipantGrid';
+import JobGrid from './components/JobGrid';
 
-.modal-box {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  min-width: 300px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  z-index: 11;
-}
+const App = () => {
+  const [selectedTab, setSelectedTab] = useState('participant');
+
+  return (
+    <div className="p-4">
+      <Tabs selected={selectedTab} setSelected={setSelectedTab} />
+      <div className="mt-4">
+        {selectedTab === 'participant' ? <ParticipantGrid /> : <JobGrid />}
+      </div>
+    </div>
+  );
+};
+
+export default App;
+
+// components/Tabs.js
+import React from 'react';
+
+const Tabs = ({ selected, setSelected }) => (
+  <div className="flex space-x-4 border-b pb-2">
+    <button onClick={() => setSelected('participant')} className={selected === 'participant' ? 'font-bold' : ''}>Participant Bank Details</button>
+    <button onClick={() => setSelected('jobs')} className={selected === 'jobs' ? 'font-bold' : ''}>View/Approve Jobs</button>
+  </div>
+);
+
+export default Tabs;
+
+// components/ParticipantGrid.js
+import React, { useState } from 'react';
+import BankDetailsDialog from './BankDetailsDialog';
+import ConfirmationModal from './ConfirmationModal';
+
+const ParticipantGrid = () => {
+  const [entries, setEntries] = useState([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [selectedData, setSelectedData] = useState(null);
+  const [mode, setMode] = useState('add');
+
+  const handleAdd = () => {
+    setSelectedData(null);
+    setMode('add');
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (entry, index) => {
+    setSelectedData({ ...entry, index });
+    setMode('edit');
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = (data) => {
+    setDialogOpen(false);
+    setConfirmOpen(true);
+    setSelectedData({ ...data, mode });
+  };
+
+  const handleConfirm = () => {
+    if (selectedData.mode === 'add') {
+      setEntries([...entries, selectedData]);
+    } else {
+      const updated = [...entries];
+      updated[selectedData.index] = selectedData;
+      setEntries(updated);
+    }
+    setConfirmOpen(false);
+  };
+
+  return (
+    <div>
+      <button onClick={handleAdd} className="mb-2 bg-blue-500 text-white px-3 py-1">Add</button>
+      <table className="table-auto w-full">
+        <thead>
+          <tr>
+            <th>Beneficiary Name</th>
+            <th>ID Type</th>
+            <th>ID Value</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((entry, idx) => (
+            <tr key={idx}>
+              <td>{entry.beneficiaryName}</td>
+              <td>{entry.idType}</td>
+              <td>{entry.idValue}</td>
+              <td>
+                <button onClick={() => handleEdit(entry, idx)} className="text-blue-600">Edit</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {dialogOpen && <BankDetailsDialog mode={mode} data={selectedData} onClose={() => setDialogOpen(false)} onSubmit={handleSubmit} />}
+      {confirmOpen && <ConfirmationModal action={mode === 'add' ? 'add' : 'edit'} onCancel={() => setConfirmOpen(false)} onConfirm={handleConfirm} />}
+    </div>
+  );
+};
+
+export default ParticipantGrid;
+
+// components/JobGrid.js
+import React, { useState } from 'react';
+import BankDetailsDialog from './BankDetailsDialog';
+import ConfirmationModal from './ConfirmationModal';
+
+const JobGrid = () => {
+  const [entries, setEntries] = useState([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [selectedData, setSelectedData] = useState(null);
+  const [actionType, setActionType] = useState('approve');
+
+  const handleApprove = (entry) => {
+    setSelectedData(entry);
+    setDialogOpen(true);
+    setActionType('approve');
+  };
+
+  const handleReject = (index) => {
+    setSelectedData({ index });
+    setActionType('reject');
+    setConfirmOpen(true);
+  };
+
+  const handleConfirm = () => {
+    if (actionType === 'reject') {
+      const updated = [...entries];
+      updated.splice(selectedData.index, 1);
+      setEntries(updated);
+    }
+    setConfirmOpen(false);
+    setDialogOpen(false);
+  };
+
+  return (
+    <div>
+      <table className="table-auto w-full">
+        <thead>
+          <tr>
+            <th>Beneficiary Name</th>
+            <th>ID Type</th>
+            <th>ID Value</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((entry, idx) => (
+            <tr key={idx}>
+              <td>{entry.beneficiaryName}</td>
+              <td>{entry.idType}</td>
+              <td>{entry.idValue}</td>
+              <td>
+                <button onClick={() => handleApprove(entry)} className="text-green-600 mr-2">Approve</button>
+                <button onClick={() => handleReject(idx)} className="text-red-600">Reject</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {dialogOpen && <BankDetailsDialog mode="view" data={selectedData} onClose={() => setDialogOpen(false)} onSubmit={() => setConfirmOpen(true)} />}
+      {confirmOpen && <ConfirmationModal action={actionType} onCancel={() => setConfirmOpen(false)} onConfirm={handleConfirm} />}
+    </div>
+  );
+};
+
+export default JobGrid;
+
+// components/BankDetailsDialog.js
+import React, { useState, useEffect } from 'react';
+
+const BankDetailsDialog = ({ data, onClose, onSubmit, mode }) => {
+  const [formData, setFormData] = useState({
+    idType: '',
+    idValue: '',
+    beneficiaryName: '',
+    address1: '',
+    cityStateZip: '',
+    country: '',
+    bankIdType: '',
+    bankIdValue: '',
+    bankName: '',
+    bankAddress1: '',
+    bankAddress2: '',
+    bankCountry: '',
+    refSent: '',
+    detail1: '',
+    detail2: '',
+    detail3: ''
+  });
+
+  useEffect(() => {
+    if (data) setFormData({ ...formData, ...data });
+  }, [data]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center">
+      <div className="bg-white p-6 rounded-md w-2/3 max-h-[90vh] overflow-y-auto">
+        <h2 className="text-lg font-bold mb-4">{mode === 'edit' ? 'Edit' : 'Add'} Bank Details</h2>
+
+        <h3 className="font-semibold">Beneficiary Section</h3>
+        <label>ID Type *</label>
+        <select name="idType" required onChange={handleChange} value={formData.idType}>
+          <option value="">Select</option>
+          <option value="USABA">USABA</option>
+          <option value="ACCT">ACCT</option>
+          <option value="JPMCACC">JPMCACC</option>
+        </select>
+        <input name="idValue" placeholder="ID Value" title="For USABA - ABA Number and For Acct - Beneficiary Account Number" required value={formData.idValue} onChange={handleChange} />
+        <input name="beneficiaryName" placeholder="Beneficiary Name" required value={formData.beneficiaryName} onChange={handleChange} />
+        <input name="address1" placeholder="Address 1" title="Beneficiary Address" value={formData.address1} onChange={handleChange} />
+        <input name="cityStateZip" placeholder="City, State, Zip" title="Beneficiary City, State, Zip" value={formData.cityStateZip} onChange={handleChange} />
+        <input name="country" placeholder="Country" value={formData.country} onChange={handleChange} />
+
+        <h3 className="font-semibold mt-4">Beneficiary Bank Section</h3>
+        <input name="bankIdType" placeholder="Bank ID Type" value={formData.bankIdType} onChange={handleChange} />
+        <input name="bankIdValue" placeholder="Bank ID Value" value={formData.bankIdValue} onChange={handleChange} />
+        <input name="bankName" placeholder="Name" title="Beneficiary Bank Name" value={formData.bankName} onChange={handleChange} />
+        <input name="bankAddress1" placeholder="Address 1" title="Beneficiary Bank Address" value={formData.bankAddress1} onChange={handleChange} />
+        <input name="bankAddress2" placeholder="Address 2" title="Beneficiary Bank City, State, Zip" value={formData.bankAddress2} onChange={handleChange} />
+        <input name="bankCountry" placeholder="Country" value={formData.bankCountry} onChange={handleChange} />
+
+        <h3 className="font-semibold mt-4">Transaction Details Section</h3>
+        <input name="refSent" placeholder="Reference Sent w/Payment" title="Freeform for each Participant (generally specifies - RTP Interest)" value={formData.refSent} onChange={handleChange} />
+        <input name="detail1" placeholder="Detail 1" value={formData.detail1} onChange={handleChange} />
+        <input name="detail2" placeholder="Detail 2" value={formData.detail2} onChange={handleChange} />
+        <input name="detail3" placeholder="Detail 3" value={formData.detail3} onChange={handleChange} />
+
+        <div className="mt-4 flex justify-end space-x-2">
+          <button onClick={onClose}>Cancel</button>
+          <button onClick={() => onSubmit(formData)}>{mode === 'edit' ? 'Edit' : 'Add'}</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default BankDetailsDialog;
+
+// components/ConfirmationModal.js
+import React from 'react';
+
+const ConfirmationModal = ({ action, onConfirm, onCancel }) => (
+  <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center">
+    <div className="bg-white p-6 rounded-md">
+      <p>Are you sure you want to {action} this Participant Bank detail?</p>
+      <div className="mt-4 flex justify-end space-x-2">
+        <button onClick={onCancel}>Cancel</button>
+        <button onClick={onConfirm}>{action.charAt(0).toUpperCase() + action.slice(1)}</button>
+      </div>
+    </div>
+  </div>
+);
+
+export default ConfirmationModal;
