@@ -1,42 +1,28 @@
-import React from 'react';
-import { Formik, Form, Field } from 'formik';
-import { FormControl, InputLabel, MenuItem, Select, Button } from '@mui/material';
+import React, { useState } from 'react';
+import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 
-const MyForm = () => {
+export default function SelectAlertExample() {
+  const [option, setOption] = useState('');
+
+  const handleChange = (event) => {
+    const selectedValue = event.target.value;
+    setOption(selectedValue);
+    alert(`You selected: ${selectedValue}`);
+  };
+
   return (
-    <Formik
-      initialValues={{
-        selection: '',
-      }}
-      onSubmit={(values) => {
-        alert(`Selected: ${values.selection}`);
-      }}
-    >
-      {({ values, handleChange, handleBlur }) => (
-        <Form>
-          <FormControl sx={{ width: 300 }}>
-            <InputLabel id="select-label">Choose an Option</InputLabel>
-            <Field
-              name="selection"
-              as={Select}
-              labelId="select-label"
-              value={values.selection}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              label="Choose an Option"
-            >
-              <MenuItem value="Option 1">Option 1</MenuItem>
-              <MenuItem value="Option 2">Option 2</MenuItem>
-            </Field>
-          </FormControl>
-
-          <Button type="submit" variant="contained" sx={{ marginTop: 2 }}>
-            Submit
-          </Button>
-        </Form>
-      )}
-    </Formik>
+    <FormControl fullWidth>
+      <InputLabel id="select-label">Choose an Option</InputLabel>
+      <Select
+        labelId="select-label"
+        value={option}
+        label="Choose an Option"
+        onChange={handleChange}
+      >
+        <MenuItem value="Option 1">Option 1</MenuItem>
+        <MenuItem value="Option 2">Option 2</MenuItem>
+        <MenuItem value="Option 3">Option 3</MenuItem>
+      </Select>
+    </FormControl>
   );
-};
-
-export default MyForm;
+}
