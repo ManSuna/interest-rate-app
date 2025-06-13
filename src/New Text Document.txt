@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Formik, Form, Field } from 'formik';
-import { Select, MenuItem, InputLabel, FormControl, FormHelperText, Grid, Button } from '@mui/material';
-import { useFormikContext } from 'formik';
+import { Select, MenuItem, InputLabel, FormControl, FormHelperText, Button } from '@mui/material';
 
 const dateRanges = [
   { id: 1, startDate: '2025/04/25', endDate: '2025/04/29' },
@@ -9,17 +8,19 @@ const dateRanges = [
   { id: 3, startDate: '2025/05/09', endDate: '2025/05/22' },
 ];
 
-const InterestRateCycleForm = () => {
+function InterestRateCycleForm() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  const handleStartDateChange = (event) => {
+  const handleStartDateChange = (event, setFieldValue) => {
     const selectedStartDate = event.target.value;
     setStartDate(selectedStartDate);
     const selectedRange = dateRanges.find(
       (range) => range.startDate === selectedStartDate
     );
     setEndDate(selectedRange ? selectedRange.endDate : '');
+    setFieldValue('startDate', selectedStartDate);
+    setFieldValue('endDate', selectedRange ? selectedRange.endDate : '');
   };
 
   return (
@@ -35,75 +36,67 @@ const InterestRateCycleForm = () => {
     >
       {({ values, touched, errors, handleChange, handleBlur, setFieldValue }) => (
         <Form>
-          <Grid container spacing={2}>
-            <Grid item xs={6}>
-              <FormControl fullWidth error={touched.startDate && Boolean(errors.startDate)}>
-                <InputLabel>Start Date</InputLabel>
-                <Field
-                  name="startDate"
-                  as={Select}
-                  value={values.startDate}
-                  onChange={(e) => {
-                    handleChange(e);
-                    handleStartDateChange(e);
-                  }}
-                  onBlur={handleBlur}
-                >
-                  {dateRanges.map((range) => (
-                    <MenuItem key={range.id} value={range.startDate}>
-                      {range.startDate}
-                    </MenuItem>
-                  ))}
-                </Field>
-                {touched.startDate && errors.startDate && (
-                  <FormHelperText>{errors.startDate}</FormHelperText>
-                )}
-              </FormControl>
-            </Grid>
-            <Grid item xs={6}>
-              <FormControl fullWidth error={touched.endDate && Boolean(errors.endDate)}>
-                <InputLabel>End Date</InputLabel>
-                <Field
-                  name="endDate"
-                  as={Select}
-                  value={values.endDate}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  disabled
-                >
-                  <MenuItem value={endDate}>{endDate}</MenuItem>
-                </Field>
-                {touched.endDate && errors.endDate && (
-                  <FormHelperText>{errors.endDate}</FormHelperText>
-                )}
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth error={touched.interestPaymentAmount && Boolean(errors.interestPaymentAmount)}>
-                <InputLabel>Interest Payment Amount</InputLabel>
-                <Field
-                  name="interestPaymentAmount"
-                  as="input"
-                  type="number"
-                  value={values.interestPaymentAmount}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                />
-                {touched.interestPaymentAmount && errors.interestPaymentAmount && (
-                  <FormHelperText>{errors.interestPaymentAmount}</FormHelperText>
-                )}
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <Button type="submit" variant="contained" color="primary">
-                Submit
-              </Button>
-            </Grid>
-          </Grid>
+          <FormControl fullWidth error={touched.startDate && Boolean(errors.startDate)}>
+            <InputLabel>Start Date</InputLabel>
+            <Field
+              name="startDate"
+              as={Select}
+              value={values.startDate}
+              onChange={(e) => handleStartDateChange(e, setFieldValue)}
+              onBlur={handleBlur}
+              label="Start Date"
+            >
+              {dateRanges.map((range) => (
+                <MenuItem key={range.id} value={range.startDate}>
+                  {range.startDate}
+                </MenuItem>
+              ))}
+            </Field>
+            {touched.startDate && errors.startDate && (
+              <FormHelperText>{errors.startDate}</FormHelperText>
+            )}
+          </FormControl>
+
+          <FormControl fullWidth error={touched.endDate && Boolean(errors.endDate)}>
+            <InputLabel>End Date</InputLabel>
+            <Field
+              name="endDate"
+              as={Select}
+              value={values.endDate}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              label="End Date"
+              disabled
+            >
+              <MenuItem value={endDate}>{endDate}</MenuItem>
+            </Field>
+            {touched.endDate && errors.endDate && (
+              <FormHelperText>{errors.endDate}</FormHelperText>
+            )}
+          </FormControl>
+
+          <FormControl fullWidth error={touched.interestPaymentAmount && Boolean(errors.interestPaymentAmount)}>
+            <InputLabel>Interest Payment Amount</InputLabel>
+            <Field
+              name="interestPaymentAmount"
+              as="input"
+              type="number"
+              value={values.interestPaymentAmount}
+              onChange={handleChange}
+              onBlur={handleBlur}
+            />
+            {touched.interestPaymentAmount && errors.interestPaymentAmount && (
+              <FormHelperText>{errors.interestPaymentAmount}</FormHelperText>
+            )}
+          </FormControl>
+
+          <Button type="submit" variant="contained" color="primary">
+            Submit
+          </Button>
         </Form>
       )}
     </Formik>
   );
-};
+}
 
 export default InterestRateCycleForm;
