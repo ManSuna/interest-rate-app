@@ -12,15 +12,23 @@ function InterestRateCycleForm() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  const handleStartDateChange = (event, setFieldValue) => {
-    const selectedStartDate = event.target.value;
-    setStartDate(selectedStartDate);
+  const handleDateChange = (event, setFieldValue, fieldName) => {
+    const selectedDate = event.target.value;
     const selectedRange = dateRanges.find(
-      (range) => range.startDate === selectedStartDate
+      (range) => range.startDate === selectedDate || range.endDate === selectedDate
     );
-    setEndDate(selectedRange ? selectedRange.endDate : '');
-    setFieldValue('startDate', selectedStartDate);
-    setFieldValue('endDate', selectedRange ? selectedRange.endDate : '');
+
+    if (fieldName === 'startDate') {
+      setStartDate(selectedDate);
+      setEndDate(selectedRange ? selectedRange.endDate : '');
+      setFieldValue('startDate', selectedDate);
+      setFieldValue('endDate', selectedRange ? selectedRange.endDate : '');
+    } else {
+      setEndDate(selectedDate);
+      setStartDate(selectedRange ? selectedRange.startDate : '');
+      setFieldValue('endDate', selectedDate);
+      setFieldValue('startDate', selectedRange ? selectedRange.startDate : '');
+    }
   };
 
   return (
@@ -42,7 +50,7 @@ function InterestRateCycleForm() {
               name="startDate"
               as={Select}
               value={values.startDate}
-              onChange={(e) => handleStartDateChange(e, setFieldValue)}
+              onChange={(e) => handleDateChange(e, setFieldValue, 'startDate')}
               onBlur={handleBlur}
               label="Start Date"
             >
@@ -63,12 +71,15 @@ function InterestRateCycleForm() {
               name="endDate"
               as={Select}
               value={values.endDate}
-              onChange={handleChange}
+              onChange={(e) => handleDateChange(e, setFieldValue, 'endDate')}
               onBlur={handleBlur}
               label="End Date"
-              disabled
             >
-              <MenuItem value={endDate}>{endDate}</MenuItem>
+              {dateRanges.map((range) => (
+                <MenuItem key={range.id} value={range.endDate}>
+                  {range.endDate}
+                </MenuItem>
+              ))}
             </Field>
             {touched.endDate && errors.endDate && (
               <FormHelperText>{errors.endDate}</FormHelperText>
