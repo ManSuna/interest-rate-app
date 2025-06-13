@@ -1,45 +1,75 @@
 import React from 'react';
-import { Formik, Form, Field } from 'formik';
+import { Formik, Form } from 'formik';
 import {
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  FormHelperText,
+  TextField,
+  Button,
+  Box,
 } from '@mui/material';
 
-export default function FormikSelectAlert() {
+export default function ConditionalForm() {
   return (
     <Formik
-      initialValues={{ selectedOption: '' }}
+      initialValues={{
+        selectedOption: '',
+        businessDate: '',
+        reportName: '',
+      }}
       onSubmit={(values) => {
-        console.log('Form submitted:', values);
+        alert(JSON.stringify(values, null, 2));
       }}
     >
-      {({ values, handleChange, handleBlur, touched, errors }) => (
-        <Form>
+      {({ values, handleChange, handleSubmit }) => (
+        <Form onSubmit={handleSubmit}>
           <FormControl fullWidth margin="normal">
             <InputLabel id="select-label">Choose an Option</InputLabel>
             <Select
               labelId="select-label"
               name="selectedOption"
               value={values.selectedOption}
-              label="Choose an Option"
-              onChange={(e) => {
-                handleChange(e);
-                alert(`You selected: ${e.target.value}`);
-              }}
-              onBlur={handleBlur}
-              error={touched.selectedOption && Boolean(errors.selectedOption)}
+              onChange={handleChange}
             >
-              <MenuItem value="Option 1">Option 1</MenuItem>
-              <MenuItem value="Option 2">Option 2</MenuItem>
-              <MenuItem value="Option 3">Option 3</MenuItem>
+              <MenuItem value="">-- Select --</MenuItem>
+              <MenuItem value="option1">Option 1</MenuItem>
+              <MenuItem value="option2">Option 2</MenuItem>
+              <MenuItem value="option3">Option 3</MenuItem>
             </Select>
-            {touched.selectedOption && errors.selectedOption && (
-              <FormHelperText error>{errors.selectedOption}</FormHelperText>
-            )}
           </FormControl>
+
+          {/* Conditional input for Option 1 */}
+          {values.selectedOption === 'option1' && (
+            <Box mt={2}>
+              <TextField
+                fullWidth
+                label="Business Date"
+                name="businessDate"
+                value={values.businessDate}
+                onChange={handleChange}
+              />
+              <Button type="submit" variant="contained" color="primary" sx={{ mt: 2 }}>
+                Submit
+              </Button>
+            </Box>
+          )}
+
+          {/* Conditional input for Option 2 */}
+          {values.selectedOption === 'option2' && (
+            <Box mt={2}>
+              <TextField
+                fullWidth
+                label="Report Name"
+                name="reportName"
+                value={values.reportName}
+                onChange={handleChange}
+              />
+              <Button type="submit" variant="contained" color="primary" sx={{ mt: 2 }}>
+                Submit
+              </Button>
+            </Box>
+          )}
         </Form>
       )}
     </Formik>
