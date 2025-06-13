@@ -25,3 +25,16 @@ import { Tabs, Tab, Box } from '@mui/material';
     {/* Content for Interest Rate - Daily */}
   </Box>
 </TabPanel>
+
+
+import { useFormik } from 'formik';
+import dayjs from 'dayjs';
+
+const formik = useFormik({
+  initialValues: {
+    businessDate: dayjs().format('YYYYMMDD'),
+  },
+  onSubmit: (values) => {
+    console.log(values);
+  },
+});
