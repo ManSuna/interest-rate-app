@@ -1,28 +1,47 @@
-import React, { useState } from 'react';
-import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import React from 'react';
+import { Formik, Form, Field } from 'formik';
+import {
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormHelperText,
+} from '@mui/material';
 
-export default function SelectAlertExample() {
-  const [option, setOption] = useState('');
-
-  const handleChange = (event) => {
-    const selectedValue = event.target.value;
-    setOption(selectedValue);
-    alert(`You selected: ${selectedValue}`);
-  };
-
+export default function FormikSelectAlert() {
   return (
-    <FormControl fullWidth>
-      <InputLabel id="select-label">Choose an Option</InputLabel>
-      <Select
-        labelId="select-label"
-        value={option}
-        label="Choose an Option"
-        onChange={handleChange}
-      >
-        <MenuItem value="Option 1">Option 1</MenuItem>
-        <MenuItem value="Option 2">Option 2</MenuItem>
-        <MenuItem value="Option 3">Option 3</MenuItem>
-      </Select>
-    </FormControl>
+    <Formik
+      initialValues={{ selectedOption: '' }}
+      onSubmit={(values) => {
+        console.log('Form submitted:', values);
+      }}
+    >
+      {({ values, handleChange, handleBlur, touched, errors }) => (
+        <Form>
+          <FormControl fullWidth margin="normal">
+            <InputLabel id="select-label">Choose an Option</InputLabel>
+            <Select
+              labelId="select-label"
+              name="selectedOption"
+              value={values.selectedOption}
+              label="Choose an Option"
+              onChange={(e) => {
+                handleChange(e);
+                alert(`You selected: ${e.target.value}`);
+              }}
+              onBlur={handleBlur}
+              error={touched.selectedOption && Boolean(errors.selectedOption)}
+            >
+              <MenuItem value="Option 1">Option 1</MenuItem>
+              <MenuItem value="Option 2">Option 2</MenuItem>
+              <MenuItem value="Option 3">Option 3</MenuItem>
+            </Select>
+            {touched.selectedOption && errors.selectedOption && (
+              <FormHelperText error>{errors.selectedOption}</FormHelperText>
+            )}
+          </FormControl>
+        </Form>
+      )}
+    </Formik>
   );
 }
