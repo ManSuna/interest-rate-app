@@ -38,3 +38,44 @@ const formik = useFormik({
     console.log(values);
   },
 });
+
+import React, { useState } from 'react';
+import { TextField, Button, Grid, Tooltip } from '@mui/material';
+import Loader from 'react-loader-spinner';
+
+const InterestRateDailyForm = () => {
+  const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setSubmitted(false);
+
+    // Simulate a 30-second server response delay
+    await new Promise((resolve) => setTimeout(resolve, 30000));
+
+    setLoading(false);
+    setSubmitted(true);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <Grid container spacing={2}>
+        {/* Your form fields go here */}
+        <Grid item xs={12}>
+          <Button type="submit" variant="contained" color="primary" disabled={loading}>
+            {loading ? (
+              <Loader type="ThreeDots" color="#fff" height={20} width={20} />
+            ) : (
+              'Recalculate and Resend'
+            )}
+          </Button>
+        </Grid>
+      </Grid>
+      {submitted && <p>Request has been submitted</p>}
+    </form>
+  );
+};
+
+export default InterestRateDailyForm;
