@@ -1,3 +1,27 @@
-npx create-react-app interest-rate-app
-cd interest-rate-app
-npm install @mui/material @mui/icons-material react-hook-form
+import { Tabs, Tab, Box } from '@mui/material';
+
+<Tabs
+  value={value}
+  onChange={handleChange}
+  aria-label="Interest Rate Tabs"
+  sx={{
+    backgroundColor: 'white',
+    '& .MuiTab-root': {
+      backgroundColor: 'white',
+      '&.Mui-selected': {
+        backgroundColor: 'white',
+      },
+    },
+  }}
+>
+  <Tab label="Interest Rate - Daily" />
+  <Tab label="Interest Rate - Cycle" />
+  <Tab label="Interest Rate - Reports" />
+  <Tab label="Interest Rate Maintenance" />
+</Tabs>
+
+<TabPanel value={value} index={0}>
+  <Box sx={{ backgroundColor: 'white', padding: 2 }}>
+    {/* Content for Interest Rate - Daily */}
+  </Box>
+</TabPanel>
