@@ -1,80 +1,61 @@
-import { Tabs, Tab, Box } from '@mui/material';
-
-<Tabs
-  value={value}
-  onChange={handleChange}
-  aria-label="Interest Rate Tabs"
-  sx={{
-    backgroundColor: 'white',
-    '& .MuiTab-root': {
-      backgroundColor: 'white',
-      '&.Mui-selected': {
-        backgroundColor: 'white',
-      },
-    },
-  }}
->
-  <Tab label="Interest Rate - Daily" />
-  <Tab label="Interest Rate - Cycle" />
-  <Tab label="Interest Rate - Reports" />
-  <Tab label="Interest Rate Maintenance" />
-</Tabs>
-
-<TabPanel value={value} index={0}>
-  <Box sx={{ backgroundColor: 'white', padding: 2 }}>
-    {/* Content for Interest Rate - Daily */}
-  </Box>
-</TabPanel>
-
-
+import React, { useState } from 'react';
+import { Box, Button, CircularProgress, Grid, Tooltip } from '@mui/material';
+import { CircleSpinnerOverlay } from 'react-spinner-overlay';
 import { useFormik } from 'formik';
 import dayjs from 'dayjs';
-
-const formik = useFormik({
-  initialValues: {
-    businessDate: dayjs().format('YYYYMMDD'),
-  },
-  onSubmit: (values) => {
-    console.log(values);
-  },
-});
-
-import React, { useState } from 'react';
-import { TextField, Button, Grid, Tooltip } from '@mui/material';
-import Loader from 'react-loader-spinner';
 
 const InterestRateDailyForm = () => {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setLoading(true);
-    setSubmitted(false);
+  const formik = useFormik({
+    initialValues: {
+      businessDate: dayjs().format('YYYYMMDD'),
+    },
+    onSubmit: async (values) => {
+      setLoading(true);
+      setSubmitted(false);
 
-    // Simulate a 30-second server response delay
-    await new Promise((resolve) => setTimeout(resolve, 30000));
+      // Simulate a 30-second server response delay
+      await new Promise((resolve) => setTimeout(resolve, 30000));
 
-    setLoading(false);
-    setSubmitted(true);
-  };
+      setLoading(false);
+      setSubmitted(true);
+    },
+  });
 
   return (
-    <form onSubmit={handleSubmit}>
-      <Grid container spacing={2}>
-        {/* Your form fields go here */}
-        <Grid item xs={12}>
-          <Button type="submit" variant="contained" color="primary" disabled={loading}>
-            {loading ? (
-              <Loader type="ThreeDots" color="#fff" height={20} width={20} />
-            ) : (
-              'Recalculate and Resend'
-            )}
-          </Button>
-        </Grid>
-      </Grid>
-      {submitted && <p>Request has been submitted</p>}
-    </form>
+    <>
+      <CircleSpinnerOverlay
+        loading={loading}
+        overlayColor="rgba(255, 255, 255, 0.5)"
+        spinnerColor="#00BFFF"
+        size={60}
+      />
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
+        <form onSubmit={formik.handleSubmit}>
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <Tooltip title="Enter or select the Business Date" arrow>
+                <input
+                  type="date"
+                  name="businessDate"
+                  value={formik.values.businessDate}
+                  onChange={formik.handleChange}
+                  required
+                />
+              </Tooltip>
+            </Grid>
+            <Grid item xs={12}>
+              <Button type="submit" variant="contained" color="primary" disabled={loading}>
+                {loading ? <CircularProgress size={24} /> : 'Recalculate and Resend'}
+              </Button>
+            </Grid>
+          </Grid>
+        </form>
+        {submitted && <p>Request has been submitted</p>}
+      </Box>
+    </>
   );
 };
 
