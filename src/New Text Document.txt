@@ -1,65 +1,18 @@
-import React, { useState } from 'react';
-import { Box, Button, CircularProgress, Grid, Tooltip, Backdrop } from '@mui/material';
-import { useFormik } from 'formik';
-import dayjs from 'dayjs';
+import { styled } from '@mui/material/styles';
+import { Tabs, Tab } from '@mui/material';
 
-const InterestRateDailyForm = () => {
-  const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+const StyledTab = styled(Tab)(({ theme }) => ({
+  fontSize: '16px',
+  color: 'black',
+  '&.Mui-selected': {
+    color: theme.palette.primary.main,
+    fontWeight: 'bold',
+  },
+}));
 
-  const formik = useFormik({
-    initialValues: {
-      businessDate: dayjs().format('YYYYMMDD'),
-    },
-    onSubmit: async (values) => {
-      setLoading(true);
-      setSubmitted(false);
-
-      // Simulate a 30-second server response delay
-      await new Promise((resolve) => setTimeout(resolve, 30000));
-
-      setLoading(false);
-      setSubmitted(true);
-    },
-  });
-
-  return (
-    <>
-      <Backdrop
-        sx={{
-          color: '#fff',
-          zIndex: (theme) => theme.zIndex.drawer + 1,
-          backdropFilter: 'blur(5px)', // Apply blur effect
-        }}
-        open={loading}
-      >
-        <CircularProgress color="inherit" />
-      </Backdrop>
-      <Box sx={{ position: 'relative', zIndex: 1 }}>
-        <form onSubmit={formik.handleSubmit}>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <Tooltip title="Enter or select the Business Date" arrow>
-                <input
-                  type="date"
-                  name="businessDate"
-                  value={formik.values.businessDate}
-                  onChange={formik.handleChange}
-                  required
-                />
-              </Tooltip>
-            </Grid>
-            <Grid item xs={12}>
-              <Button type="submit" variant="contained" color="primary" disabled={loading}>
-                {loading ? <CircularProgress size={24} /> : 'Recalculate and Resend'}
-              </Button>
-            </Grid>
-          </Grid>
-        </form>
-        {submitted && <p>Request has been submitted</p>}
-      </Box>
-    </>
-  );
-};
-
-export default InterestRateDailyForm;
+<Tabs value={value} onChange={handleChange} aria-label="tabs">
+  <StyledTab label="Interest Rate - Daily" />
+  <StyledTab label="Interest Rate - Cycle" />
+  <StyledTab label="Interest Rate - Reports" />
+  <StyledTab label="Interest Rate Maintenance" />
+</Tabs>
