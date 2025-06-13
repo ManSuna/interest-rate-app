@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Button, CircularProgress, Grid, Tooltip } from '@mui/material';
-import { CircleSpinnerOverlay } from 'react-spinner-overlay';
+import { Box, Button, CircularProgress, Grid, Tooltip, Backdrop } from '@mui/material';
 import { useFormik } from 'formik';
 import dayjs from 'dayjs';
 
@@ -26,12 +25,16 @@ const InterestRateDailyForm = () => {
 
   return (
     <>
-      <CircleSpinnerOverlay
-        loading={loading}
-        overlayColor="rgba(255, 255, 255, 0.5)"
-        spinnerColor="#00BFFF"
-        size={60}
-      />
+      <Backdrop
+        sx={{
+          color: '#fff',
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          backdropFilter: 'blur(5px)', // Apply blur effect
+        }}
+        open={loading}
+      >
+        <CircularProgress color="inherit" />
+      </Backdrop>
       <Box sx={{ position: 'relative', zIndex: 1 }}>
         <form onSubmit={formik.handleSubmit}>
           <Grid container spacing={2}>
