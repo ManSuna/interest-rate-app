@@ -1,0 +1,42 @@
+function SaveDataComponent() {
+  const [response, setResponse] = useState('');
+
+  const handleSave = async () => {
+    const token = localStorage.getItem('token'); // Ensure your token is stored securely
+
+    const data = {
+      name: 'Example',
+      value: 123
+    };
+
+    try {
+      const res = await fetch('http://localhost:8080/api/data/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Important for @PreAuthorize
+        },
+        body: JSON.stringify(data)
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to save data');
+      }
+
+      const result = await res.text();
+      setResponse(result);
+    } catch (error) {
+      console.error(error);
+      setResponse('Error saving data');
+    }
+  };
+
+  return (
+    <div>
+      <button onClick={handleSave}>Save Data</button>
+      <p>{response}</p>
+    </div>
+  );
+}
+
+export default SaveDataComponent;
