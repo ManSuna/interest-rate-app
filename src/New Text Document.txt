@@ -1,4 +1,55 @@
-With a career built on a unique integration of biomedical research, engineering, and regulatory compliance, I have had the opportunity to lead complex projects across both startup and multinational corporate environments. I now seek to deepen my leadership capabilities, broaden my strategic insight, and position myself to drive innovation at an executive level in the biotechnology and pharmaceutical sectors.
-Throughout my 12 years of post-bachelor’s engineering and science journey, I have been consistently motivated toward roles that require initiative, cross-functional coordination, and technical excellence. Experiences like bio-assay development and qualification strategies, managing laboratory startups, and mentoring junior analysts, technology transfer and regulatory document preparation, 3D bioprinting innovations etc have given me a strong foundation in scientific rigor, project management, and team leadership in highly regulated environments.
-I now am in search of a program to complement my technical acumen with formal training in business strategy, management, finance, and organizational leadership. I am particularly drawn to UNCW’s Executive MBA for its emphasis on Strategic Management skill, Impactful Marketing, Corporate Finance and collaborative understanding of Business Law. All of this aligns with my belief in leading through action and continuous lifelong learning. I want to be more than a scientific subject matter expert. I want to shape the direction of large scale teams, drive strategic decisions, and show high-impact progress across sites at Astellas. 
-This Executive MBA at UNCW will equip me with the corporate management knowledge and confidence I need to transition into senior leadership roles, where I can contribute not only to provide scientific insight but also in large scale operational excellence. I am ready to take this as a challenge and look forward to the opportunity to engage and learn from distinguished faculty at UNCW and peers here at Astellas Gene Therapies.
+import React, { useState } from 'react';
+import axios from 'axios';
+import './App.css';
+
+function App() {
+  const [formData, setFormData] = useState({
+    businessDate: '',
+    closingTime: '',
+    amount: '',
+    rate: '',
+  });
+
+  const [jwtResponse, setJwtResponse] = useState(null);
+  const [error, setError] = useState('');
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    try {
+      const response = await axios.post('http://localhost:5000/api/submit', formData);
+      setJwtResponse(response.data.token); // Assuming backend returns { token: "JWT..." }
+    } catch (err) {
+      setError('Failed to submit data. Check console for details.');
+      console.error(err);
+    }
+  };
+
+  return (
+    <div className="App">
+      <h2>Send Business Data</h2>
+      <form onSubmit={handleSubmit}>
+        <input type="date" name="businessDate" onChange={handleChange} required />
+        <input type="time" name="closingTime" onChange={handleChange} required />
+        <input type="number" name="amount" placeholder="Amount" onChange={handleChange} required />
+        <input type="number" step="0.01" name="rate" placeholder="Rate" onChange={handleChange} required />
+        <button type="submit">Submit</button>
+      </form>
+
+      {jwtResponse && (
+        <div>
+          <h3>JWT Response:</h3>
+          <textarea readOnly rows="6" value={jwtResponse} style={{ width: '100%' }} />
+        </div>
+      )}
+
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+    </div>
+  );
+}
+
+export default App;
