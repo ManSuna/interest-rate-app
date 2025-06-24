@@ -1,42 +1,31 @@
-function SaveDataComponent() {
-  const [response, setResponse] = useState('');
-
-  const handleSave = async () => {
-    const token = localStorage.getItem('token'); // Ensure your token is stored securely
-
-    const data = {
-      name: 'Example',
-      value: 123
-    };
+const PostWithBasicAuth = () => {
+  const handlePost = async () => {
+    const username = "testuser";
+    const password = "testpass";
+    const token = btoa(`${username}:${password}`); // Base64 encode
 
     try {
-      const res = await fetch('http://localhost:8080/api/data/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // Important for @PreAuthorize
-        },
-        body: JSON.stringify(data)
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to save data');
-      }
-
-      const result = await res.text();
-      setResponse(result);
+      const response = await axios.post(
+        "http://localhost:8080/api/test",
+        { message: "Hello from React" },
+        {
+          headers: {
+            Authorization: `Basic ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      console.log("Response:", response.data);
     } catch (error) {
-      console.error(error);
-      setResponse('Error saving data');
+      console.error("Error:", error.response?.data || error.message);
     }
   };
 
   return (
     <div>
-      <button onClick={handleSave}>Save Data</button>
-      <p>{response}</p>
+      <button onClick={handlePost}>Send POST with Basic Auth</button>
     </div>
   );
-}
+};
 
-export default SaveDataComponent;
+export default PostWithBasicAuth;
