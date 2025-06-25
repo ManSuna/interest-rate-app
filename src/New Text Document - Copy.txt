@@ -1,33 +1,52 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 
-const MyComponent = () => {
-  const [data, setData] = useState([]);
+const MyForm = () => {
+  // Step 1: State to hold form data
+  const [formData, setFormData] = useState({
+    name: '',
+    email: ''
+  });
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
+  // Step 2: Handle input field change
+  const handleChange = (e) => {
+    const { name, value } = e.target;
 
-    fetch('https://api.example.com/dates', {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Step 3: Handle form submission
+  const handleSubmit = (e) => {
+    e.preventDefault(); // Prevent page reload
+
+    console.log('Form Data:', formData);
+
+    // Example: Send it to server
+    fetch('https://api.example.com/submit', {
+      method: 'POST',
       headers: {
-        Authorization: `Bearer ${token}`
-      }
+        'Content-Type': 'application/json'
+        // 'Authorization': `Bearer ${token}` if needed
+      },
+      body: JSON.stringify(formData)
     })
       .then(res => res.json())
-      .then(json => setData(json))
-      .catch(err => console.error(err));
-  }, []);
+      .then(response => {
+        console.log('Server response:', response);
+        // Optional: reset form
+        setFormData({ name: '', email: '' });
+      })
+      .catch(err => console.error('Error:', err));
+  };
 
   return (
-    <div>
-      <h2>Date Ranges</h2>
-      <ul>
-        {data.map(item => (
-          <li key={item.id}>
-            {item.startDate} - {item.endDate}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-};
-
-export default MyComponent;
+    <form onSubmit={handleSubmit}>
+      <label>
+        Name:
+        <input
+          type="text"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
