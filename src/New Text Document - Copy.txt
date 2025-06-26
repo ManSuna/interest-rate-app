@@ -1,1 +1,83 @@
-{errorMsg && <p style={{ color: 'red' }}>{errorMsg}</p>}
+import React, { useState } from 'react';
+
+const dateRanges = [
+  { id: 1, start: '2025-04-22', end: '2025-04-25' },
+  { id: 2, start: '2025-05-01', end: '2025-05-03' }
+];
+
+const DateSender = () => {
+  const [selectedId, setSelectedId] = useState('');
+  const [showDialog, setShowDialog] = useState(false);
+
+  const selectedItem = dateRanges.find(item => item.id === parseInt(selectedId));
+
+  const handleSend = () => {
+    if (selectedItem) {
+      setShowDialog(true);
+    }
+  };
+
+  const handleConfirm = () => {
+    setShowDialog(false);
+
+    // Replace this URL with your endpoint
+    fetch('https://api.example.com/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // 'Authorization': `Bearer ${token}` if needed
+      },
+      body: JSON.stringify({ id: selectedItem.id })
+    })
+      .then(res => res.json())
+      .then(data => {
+        console.log('POST success:', data);
+        alert('Data sent successfully!');
+      })
+      .catch(err => {
+        console.error('POST failed:', err);
+        alert('Something went wrong!');
+      });
+  };
+
+  return (
+    <div>
+      <h2>Select Date Range</h2>
+
+      <select value={selectedId} onChange={e => setSelectedId(e.target.value)}>
+        <option value="">-- Select a date range --</option>
+        {dateRanges.map(item => (
+          <option key={item.id} value={item.id}>
+            {item.start} - {item.end}
+          </option>
+        ))}
+      </select>
+
+      <br /><br />
+
+      <button onClick={handleSend} disabled={!selectedId}>
+        Send
+      </button>
+
+      {/* Confirmation Dialog */}
+      {showDialog && selectedItem && (
+        <div style={{
+          border: '1px solid #ccc',
+          padding: '1rem',
+          marginTop: '1rem',
+          background: '#f9f9f9'
+        }}>
+          <p>Are you sure you want to send this date range?</p>
+          <strong>{selectedItem.start} - {selectedItem.end}</strong>
+          <br /><br />
+          <button onClick={handleConfirm}>Yes</button>
+          <button onClick={() => setShowDialog(false)} style={{ marginLeft: '1rem' }}>
+            Cancel
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default DateSender;
