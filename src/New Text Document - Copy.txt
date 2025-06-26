@@ -1,41 +1,122 @@
-import React from 'react';
-import { Formik, Form, Field, ErrorMessage } from 'formik';
-import * as Yup from 'yup';
+import React, { useState } from 'react';
+import * as yup from 'yup';
 
-const schema = Yup.object().shape({
-  amount: Yup.number()
+// Yup schema
+const schema = yup.object().shape({
+  selectedId: yup.number().required('Please select a date range'),
+  amount: yup
+    .number()
+    .typeError('Amount must be a number')
+    .positive('Amount must be greater than 0')
     .required('Amount is required')
-    .positive('Must be a positive number'),
 });
 
-const MyForm = () => {
+const dateRanges = [
+  { id: 1, start: '2025-04-22', end: '2025-04-25' },
+  { id: 2, start: '2025-05-01', end: '2025-05-03' }
+];
+
+const PlainForm = () => {
+  const [formData, setFormData] = useState({ selectedId: '', amount: '' });
+  const [errors, setErrors] = useState({});
+  const [showDialog, setShowDialog] = useState(false);
+
+  const selectedItem = dateRanges.find(item => item.id === parseInt(formData.selectedId));
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleValidateAndShowDialog = async () => {
+    try {
+      await schema.validate(formData, { abortEarly: false });
+      setErrors({});
+      setShowDialog(true);
+    } catch (err) {
+      const validationErrors = {};
+      err.inner.forEach(e => {
+        validationErrors[e.path] = e.message;
+      });
+      setErrors(validationErrors);
+    }
+  };
+
+  const handleConfirm = () => {
+    setShowDialog(false);
+
+    fetch('https://api.example.com/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: parseInt(formData.selectedId),
+        amount: parseFloat(formData.amount)
+      })
+    })
+      .then(res => res.json())
+      .then(data => {
+        alert('Data sent successfully!');
+        setFormData({ selectedId: '', amount: '' });
+      })
+      .catch(err => {
+        console.error('POST failed:', err);
+        alert('Something went wrong!');
+      });
+  };
+
   return (
-    <Formik
-      initialValues={{ amount: '' }}
-      validationSchema={schema}
-      onSubmit={(values) => {
-        console.log('Submitting...', values);
-        // Your submit logic here
-      }}
-    >
-      {({ isValid, dirty }) => (
-        <Form>
-          <div>
-            <label>Amount: </label>
-            <Field name="amount" type="text" />
-            <ErrorMessage name="amount" component="div" style={{ color: 'red' }} />
-          </div>
+    <div>
+      <h2>Select Date Range and Amount</h2>
 
-          <br />
+      <label>
+        Date Range:&nbsp;
+        <select name="selectedId" value={formData.selectedId} onChange={handleChange}>
+          <option value="">-- Select --</option>
+          {dateRanges.map(item => (
+            <option key={item.id} value={item.id}>
+              {item.start} - {item.end}
+            </option>
+          ))}
+        </select>
+      </label>
+      {errors.selectedId && <div style={{ color: 'red' }}>{errors.selectedId}</div>}
 
-          {/* This button will work only if Formik is set up correctly */}
-          <button type="submit" disabled={!(isValid && dirty)}>
-            Submit
-          </button>
-        </Form>
+      <br /><br />
+
+      <label>
+        Amount:&nbsp;
+        <input
+          type="text"
+          name="amount"
+          value={formData.amount}
+          onChange={handleChange}
+          placeholder="Enter amount"
+        />
+      </label>
+      {errors.amount && <div style={{ color: 'red' }}>{errors.amount}</div>}
+
+      <br /><br />
+
+      <button onClick={handleValidateAndShowDialog}>Send</button>
+
+      {showDialog && selectedItem && (
+        <div style={{
+          border: '1px solid #ccc',
+          padding: '1rem',
+          background: '#f9f9f9',
+          marginTop: '1rem'
+        }}>
+          <h3>Confirm Submission</h3>
+          <ul>
+            <li><strong>Date Range:</strong> {selectedItem.start} - {selectedItem.end}</li>
+            <li><strong>Amount:</strong> ${parseFloat(formData.amount).toFixed(2)}</li>
+          </ul>
+          <button onClick={handleConfirm}>Yes</button>
+          <button onClick={() => setShowDialog(false)} style={{ marginLeft: '1rem' }}>Cancel</button>
+        </div>
       )}
-    </Formik>
+    </div>
   );
 };
 
-export default MyForm;
+export default PlainForm;
