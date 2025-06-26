@@ -7,12 +7,31 @@ const dateRanges = [
 
 const DateSender = () => {
   const [selectedId, setSelectedId] = useState('');
+  const [amount, setAmount] = useState('');
   const [showDialog, setShowDialog] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const selectedItem = dateRanges.find(item => item.id === parseInt(selectedId));
 
+  // Simple validation
+  const isValidAmount = (value) => {
+    return /^\d+(\.\d{1,2})?$/.test(value); // allows decimals like 100.00
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    if (!selectedId) newErrors.selectedId = 'Please select a date range.';
+    if (!amount) {
+      newErrors.amount = 'Amount is required.';
+    } else if (!isValidAmount(amount)) {
+      newErrors.amount = 'Amount must be a valid number.';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSend = () => {
-    if (selectedItem) {
+    if (validateForm()) {
       setShowDialog(true);
     }
   };
@@ -20,19 +39,22 @@ const DateSender = () => {
   const handleConfirm = () => {
     setShowDialog(false);
 
-    // Replace this URL with your endpoint
     fetch('https://api.example.com/send', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        // 'Authorization': `Bearer ${token}` if needed
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ id: selectedItem.id })
+      body: JSON.stringify({
+        id: parseInt(selectedId),
+        amount: parseFloat(amount)
+      })
     })
       .then(res => res.json())
       .then(data => {
         console.log('POST success:', data);
         alert('Data sent successfully!');
+        setSelectedId('');
+        setAmount('');
       })
       .catch(err => {
         console.error('POST failed:', err);
@@ -42,20 +64,41 @@ const DateSender = () => {
 
   return (
     <div>
-      <h2>Select Date Range</h2>
+      <h2>Select Date Range and Enter Amount</h2>
 
-      <select value={selectedId} onChange={e => setSelectedId(e.target.value)}>
-        <option value="">-- Select a date range --</option>
-        {dateRanges.map(item => (
-          <option key={item.id} value={item.id}>
-            {item.start} - {item.end}
-          </option>
-        ))}
-      </select>
+      <div>
+        <label>
+          Date Range:&nbsp;
+          <select value={selectedId} onChange={e => setSelectedId(e.target.value)}>
+            <option value="">-- Select --</option>
+            {dateRanges.map(item => (
+              <option key={item.id} value={item.id}>
+                {item.start} - {item.end}
+              </option>
+            ))}
+          </select>
+        </label>
+        {errors.selectedId && <div style={{ color: 'red' }}>{errors.selectedId}</div>}
+      </div>
 
-      <br /><br />
+      <br />
 
-      <button onClick={handleSend} disabled={!selectedId}>
+      <div>
+        <label>
+          Amount:&nbsp;
+          <input
+            type="text"
+            value={amount}
+            onChange={e => setAmount(e.target.value)}
+            placeholder="Enter total amount"
+          />
+        </label>
+        {errors.amount && <div style={{ color: 'red' }}>{errors.amount}</div>}
+      </div>
+
+      <br />
+
+      <button onClick={handleSend} disabled={!selectedId || !amount || !!Object.keys(errors).length}>
         Send
       </button>
 
@@ -67,9 +110,9 @@ const DateSender = () => {
           marginTop: '1rem',
           background: '#f9f9f9'
         }}>
-          <p>Are you sure you want to send this date range?</p>
-          <strong>{selectedItem.start} - {selectedItem.end}</strong>
-          <br /><br />
+          <p>Are you sure you want to send this data?</p>
+          <strong>Date Range:</strong> {selectedItem.start} - {selectedItem.end}<br />
+          <strong>Amount:</strong> ${parseFloat(amount).toFixed(2)}<br /><br />
           <button onClick={handleConfirm}>Yes</button>
           <button onClick={() => setShowDialog(false)} style={{ marginLeft: '1rem' }}>
             Cancel
