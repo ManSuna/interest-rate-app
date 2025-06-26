@@ -1,126 +1,41 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { Formik, Form, Field, ErrorMessage } from 'formik';
+import * as Yup from 'yup';
 
-const dateRanges = [
-  { id: 1, start: '2025-04-22', end: '2025-04-25' },
-  { id: 2, start: '2025-05-01', end: '2025-05-03' }
-];
+const schema = Yup.object().shape({
+  amount: Yup.number()
+    .required('Amount is required')
+    .positive('Must be a positive number'),
+});
 
-const DateSender = () => {
-  const [selectedId, setSelectedId] = useState('');
-  const [amount, setAmount] = useState('');
-  const [showDialog, setShowDialog] = useState(false);
-  const [errors, setErrors] = useState({});
-
-  const selectedItem = dateRanges.find(item => item.id === parseInt(selectedId));
-
-  // Simple validation
-  const isValidAmount = (value) => {
-    return /^\d+(\.\d{1,2})?$/.test(value); // allows decimals like 100.00
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-    if (!selectedId) newErrors.selectedId = 'Please select a date range.';
-    if (!amount) {
-      newErrors.amount = 'Amount is required.';
-    } else if (!isValidAmount(amount)) {
-      newErrors.amount = 'Amount must be a valid number.';
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSend = () => {
-    if (validateForm()) {
-      setShowDialog(true);
-    }
-  };
-
-  const handleConfirm = () => {
-    setShowDialog(false);
-
-    fetch('https://api.example.com/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        id: parseInt(selectedId),
-        amount: parseFloat(amount)
-      })
-    })
-      .then(res => res.json())
-      .then(data => {
-        console.log('POST success:', data);
-        alert('Data sent successfully!');
-        setSelectedId('');
-        setAmount('');
-      })
-      .catch(err => {
-        console.error('POST failed:', err);
-        alert('Something went wrong!');
-      });
-  };
-
+const MyForm = () => {
   return (
-    <div>
-      <h2>Select Date Range and Enter Amount</h2>
+    <Formik
+      initialValues={{ amount: '' }}
+      validationSchema={schema}
+      onSubmit={(values) => {
+        console.log('Submitting...', values);
+        // Your submit logic here
+      }}
+    >
+      {({ isValid, dirty }) => (
+        <Form>
+          <div>
+            <label>Amount: </label>
+            <Field name="amount" type="text" />
+            <ErrorMessage name="amount" component="div" style={{ color: 'red' }} />
+          </div>
 
-      <div>
-        <label>
-          Date Range:&nbsp;
-          <select value={selectedId} onChange={e => setSelectedId(e.target.value)}>
-            <option value="">-- Select --</option>
-            {dateRanges.map(item => (
-              <option key={item.id} value={item.id}>
-                {item.start} - {item.end}
-              </option>
-            ))}
-          </select>
-        </label>
-        {errors.selectedId && <div style={{ color: 'red' }}>{errors.selectedId}</div>}
-      </div>
+          <br />
 
-      <br />
-
-      <div>
-        <label>
-          Amount:&nbsp;
-          <input
-            type="text"
-            value={amount}
-            onChange={e => setAmount(e.target.value)}
-            placeholder="Enter total amount"
-          />
-        </label>
-        {errors.amount && <div style={{ color: 'red' }}>{errors.amount}</div>}
-      </div>
-
-      <br />
-
-      <button onClick={handleSend} disabled={!selectedId || !amount || !!Object.keys(errors).length}>
-        Send
-      </button>
-
-      {/* Confirmation Dialog */}
-      {showDialog && selectedItem && (
-        <div style={{
-          border: '1px solid #ccc',
-          padding: '1rem',
-          marginTop: '1rem',
-          background: '#f9f9f9'
-        }}>
-          <p>Are you sure you want to send this data?</p>
-          <strong>Date Range:</strong> {selectedItem.start} - {selectedItem.end}<br />
-          <strong>Amount:</strong> ${parseFloat(amount).toFixed(2)}<br /><br />
-          <button onClick={handleConfirm}>Yes</button>
-          <button onClick={() => setShowDialog(false)} style={{ marginLeft: '1rem' }}>
-            Cancel
+          {/* This button will work only if Formik is set up correctly */}
+          <button type="submit" disabled={!(isValid && dirty)}>
+            Submit
           </button>
-        </div>
+        </Form>
       )}
-    </div>
+    </Formik>
   );
 };
 
-export default DateSender;
+export default MyForm;
