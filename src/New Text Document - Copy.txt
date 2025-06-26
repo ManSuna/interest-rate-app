@@ -120,3 +120,18 @@ const PlainForm = () => {
 };
 
 export default PlainForm;
+
+ <div>
+        <label>
+          Date Range:&nbsp;
+          <select value={selectedId} onChange={e => setSelectedId(e.target.value)}>
+            <option value="">-- Select --</option>
+            {dateRanges.map(item => (
+              <option key={item.id} value={item.id}>
+                {item.start} - {item.end}
+              </option>
+            ))}
+          </select>
+        </label>
+        {errors.selectedId && <div style={{ color: 'red' }}>{errors.selectedId}</div>}
+      </div>
