@@ -1,139 +1,116 @@
 import React, { useState } from 'react';
-import * as yup from 'yup';
+import { Formik, Field, Form } from 'formik';
+import * as Yup from 'yup';
 
-// Yup schema
-const schema = yup.object().shape({
-  selectedId: yup.number().required('Please select a date range'),
-  amount: yup
-    .number()
-    .typeError('Amount must be a number')
-    .positive('Amount must be greater than 0')
-    .required('Amount is required')
-});
+const MyComponent = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-const dateRanges = [
-  { id: 1, start: '2025-04-22', end: '2025-04-25' },
-  { id: 2, start: '2025-05-01', end: '2025-05-03' }
-];
+  // Unified function for both "Download" and "Download Reports" button clicks
+  const handleDownloadRequest = async (type, values) => {
+    setLoading(true);
+    setError(null); // Clear previous errors
 
-const PlainForm = () => {
-  const [formData, setFormData] = useState({ selectedId: '', amount: '' });
-  const [errors, setErrors] = useState({});
-  const [showDialog, setShowDialog] = useState(false);
+    const endpoint = type === 'download' ? 'https://api.example.com/download' : 'https://api.example.com/download-reports';
+    const fileName = type === 'download' ? 'downloaded_file.txt' : 'reports.zip';
 
-  const selectedItem = dateRanges.find(item => item.id === parseInt(formData.selectedId));
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleValidateAndShowDialog = async () => {
     try {
-      await schema.validate(formData, { abortEarly: false });
-      setErrors({});
-      setShowDialog(true);
-    } catch (err) {
-      const validationErrors = {};
-      err.inner.forEach(e => {
-        validationErrors[e.path] = e.message;
+      // Make the GET request with selected form values if needed
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          // You can pass values in headers or query params if needed, for example:
+          'selectedValue': values.selectedOption || 'default', // Pass the selected value
+        },
       });
-      setErrors(validationErrors);
+
+      if (!response.ok) {
+        throw new Error('Failed to download data');
+      }
+
+      const fileBlob = await response.blob();
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(fileBlob);
+      link.download = fileName;
+      link.click();
+    } catch (err) {
+      setError(err.message);
+      console.error('Download error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleConfirm = () => {
-    setShowDialog(false);
-
-    fetch('https://api.example.com/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: parseInt(formData.selectedId),
-        amount: parseFloat(formData.amount)
-      })
-    })
-      .then(res => res.json())
-      .then(data => {
-        alert('Data sent successfully!');
-        setFormData({ selectedId: '', amount: '' });
-      })
-      .catch(err => {
-        console.error('POST failed:', err);
-        alert('Something went wrong!');
-      });
+  // Formik form submission handler
+  const handleSubmit = (values) => {
+    console.log('Form submitted with values:', values);
   };
 
   return (
-    <div>
-      <h2>Select Date Range and Amount</h2>
+    <Formik
+      initialValues={{
+        name: '',
+        email: '',
+        selectedOption: '', // New field to track selected value
+      }}
+      validationSchema={Yup.object({
+        name: Yup.string().required('Name is required'),
+        email: Yup.string().email('Invalid email address').required('Email is required'),
+        selectedOption: Yup.string().required('Please select an option'),
+      })}
+      onSubmit={handleSubmit}
+    >
+      {({ values, isSubmitting }) => (
+        <Form>
+          <div>
+            <label htmlFor="name">Name</label>
+            <Field type="text" id="name" name="name" />
+          </div>
 
-      <label>
-        Date Range:&nbsp;
-        <select name="selectedId" value={formData.selectedId} onChange={handleChange}>
-          <option value="">-- Select --</option>
-          {dateRanges.map(item => (
-            <option key={item.id} value={item.id}>
-              {item.start} - {item.end}
-            </option>
-          ))}
-        </select>
-      </label>
-      {errors.selectedId && <div style={{ color: 'red' }}>{errors.selectedId}</div>}
+          <div>
+            <label htmlFor="email">Email</label>
+            <Field type="email" id="email" name="email" />
+          </div>
 
-      <br /><br />
+          <div>
+            <label htmlFor="selectedOption">Select Option</label>
+            <Field as="select" id="selectedOption" name="selectedOption">
+              <option value="">Select...</option>
+              <option value="option1">Option 1</option>
+              <option value="option2">Option 2</option>
+            </Field>
+          </div>
 
-      <label>
-        Amount:&nbsp;
-        <input
-          type="text"
-          name="amount"
-          value={formData.amount}
-          onChange={handleChange}
-          placeholder="Enter amount"
-        />
-      </label>
-      {errors.amount && <div style={{ color: 'red' }}>{errors.amount}</div>}
+          <div>
+            <button type="submit" disabled={isSubmitting || loading}>
+              Submit
+            </button>
+          </div>
 
-      <br /><br />
+          <div>
+            <button
+              type="button"
+              onClick={() => handleDownloadRequest('download', values)}
+              disabled={loading || isSubmitting}
+            >
+              Download
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDownloadRequest('downloadReports', values)}
+              disabled={loading || isSubmitting}
+            >
+              Download Reports
+            </button>
+          </div>
 
-      <button onClick={handleValidateAndShowDialog}>Send</button>
-
-      {showDialog && selectedItem && (
-        <div style={{
-          border: '1px solid #ccc',
-          padding: '1rem',
-          background: '#f9f9f9',
-          marginTop: '1rem'
-        }}>
-          <h3>Confirm Submission</h3>
-          <ul>
-            <li><strong>Date Range:</strong> {selectedItem.start} - {selectedItem.end}</li>
-            <li><strong>Amount:</strong> ${parseFloat(formData.amount).toFixed(2)}</li>
-          </ul>
-          <button onClick={handleConfirm}>Yes</button>
-          <button onClick={() => setShowDialog(false)} style={{ marginLeft: '1rem' }}>Cancel</button>
-        </div>
+          {error && <p style={{ color: 'red' }}>{error}</p>}
+          {loading && <p>Loading...</p>}
+        </Form>
       )}
-    </div>
+    </Formik>
   );
 };
 
-export default PlainForm;
-
- <div>
-<label>
-  Date Range:&nbsp;
-  <select
-    name="selectedId"
-    value={formData.selectedId}
-    onChange={handleChange}
-  >
-    <option value="">-- Select --</option>
-    {dateRanges.map(item => (
-      <option key={item.id} value={item.id}>
-        {item.start} - {item.end}
-      </option>
-    ))}
-  </select>
-</label>
+export default MyComponent;
