@@ -41,3 +41,83 @@ useEffect(() => {
       // Do something with the blob (download, preview, etc.)
     });
 }, []);
+
+
+
+
+
+# Node modules (massive folder, recreated by npm/yarn)
+node_modules/
+
+# Build output (don't commit this — it's generated via `npm run build`)
+build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE settings (optional, depending on your team)
+.vscode/
+.idea/
+*.sw?
+
+# dotenv files (optional — if you store secrets locally)
+.env
+.env.local
+.env.*.local
+
+# Tests / coverage output
+coverage/
+*.lcov
+
+# Optional: lock file (keep only one depending on your package manager)
+package-lock.json
+# or
+yarn.lock
+# or
+pnpm-lock.yaml
+# Node modules (massive folder, recreated by npm/yarn)
+node_modules/
+
+# Build output (don't commit this — it's generated via `npm run build`)
+build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE settings (optional, depending on your team)
+.vscode/
+.idea/
+*.sw?
+
+# dotenv files (optional — if you store secrets locally)
+.env
+.env.local
+.env.*.local
+
+# Tests / coverage output
+coverage/
+*.lcov
+
+# Optional: lock file (keep only one depending on your package manager)
+package-lock.json
+# or
+yarn.lock
+# or
+pnpm-lock.yaml
+
