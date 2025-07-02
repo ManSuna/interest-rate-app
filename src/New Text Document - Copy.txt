@@ -24,3 +24,20 @@ fetch('/api/download')
       link.remove();
     });
   });
+
+
+useEffect(() => {
+  fetch('/api/download')
+    .then(response => {
+      // Loop through all headers
+      for (let [key, value] of response.headers.entries()) {
+        console.log(`${key}: ${value}`);
+      }
+
+      // Optional: continue to handle blob
+      return response.blob();
+    })
+    .then(blob => {
+      // Do something with the blob (download, preview, etc.)
+    });
+}, []);
