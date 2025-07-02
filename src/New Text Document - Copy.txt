@@ -1,7 +1,26 @@
-@Controller
-public class ForwardController {
-    @RequestMapping(value = "/{path:[^\\.]*}")
-    public String forward() {
-        return "forward:/index.html";
-    }
-}
+fetch('/api/download')
+  .then(response => {
+    const contentDisposition = response.headers.get('Content-Disposition');
+    console.log('Header:', contentDisposition);
+
+    // Optionally download the file
+    return response.blob().then(blob => {
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+
+      // Try to parse the filename from the header
+      let filename = 'downloaded-file';
+      if (contentDisposition && contentDisposition.includes('filename=')) {
+        filename = contentDisposition
+          .split('filename=')[1]
+          .replaceAll('"', '')
+          .trim();
+      }
+
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    });
+  });
