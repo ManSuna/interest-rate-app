@@ -1,132 +1,54 @@
-fetch('/api/download')
-  .then(response => {
-    const contentDisposition = response.headers.get('Content-Disposition');
-    console.log('Header:', contentDisposition);
+// src/context/AuthContext.js
+import React, { createContext, useState, useContext } from 'react';
 
-    // Optionally download the file
-    return response.blob().then(blob => {
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
+const AuthContext = createContext();
 
-      // Try to parse the filename from the header
-      let filename = 'downloaded-file';
-      if (contentDisposition && contentDisposition.includes('filename=')) {
-        filename = contentDisposition
-          .split('filename=')[1]
-          .replaceAll('"', '')
-          .trim();
-      }
+export const AuthProvider = ({ children }) => {
+  const [token, setToken] = useState(localStorage.getItem('authToken'));
+  const [metadata, setMetadata] = useState(null);
+  const [error, setError] = useState(null);
 
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    });
-  });
+  const login = async (username, password) => {
+    try {
+      // 1. Send login request
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
 
+      if (!res.ok) throw new Error('Login failed');
 
-useEffect(() => {
-  fetch('/api/download')
-    .then(response => {
-      // Loop through all headers
-      for (let [key, value] of response.headers.entries()) {
-        console.log(`${key}: ${value}`);
-      }
+      const { token } = await res.json();
+      localStorage.setItem('authToken', token);
+      setToken(token);
 
-      // Optional: continue to handle blob
-      return response.blob();
-    })
-    .then(blob => {
-      // Do something with the blob (download, preview, etc.)
-    });
-}, []);
+      // 2. Fetch metadata using token
+      const metaRes = await fetch('/api/metadata', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
+      if (!metaRes.ok) throw new Error('Metadata fetch failed');
+      const metaDataJson = await metaRes.json();
+      setMetadata(metaDataJson);
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    }
+  };
 
+  const logout = () => {
+    setToken(null);
+    setMetadata(null);
+    localStorage.removeItem('authToken');
+  };
 
+  return (
+    <AuthContext.Provider value={{ token, metadata, login, logout, error }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
 
-
-# Node modules (massive folder, recreated by npm/yarn)
-node_modules/
-
-# Build output (don't commit this — it's generated via `npm run build`)
-build/
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# OS / editor junk
-.DS_Store
-Thumbs.db
-*.log
-
-# IDE settings (optional, depending on your team)
-.vscode/
-.idea/
-*.sw?
-
-# dotenv files (optional — if you store secrets locally)
-.env
-.env.local
-.env.*.local
-
-# Tests / coverage output
-coverage/
-*.lcov
-
-# Optional: lock file (keep only one depending on your package manager)
-package-lock.json
-# or
-yarn.lock
-# or
-pnpm-lock.yaml
-# Node modules (massive folder, recreated by npm/yarn)
-node_modules/
-
-# Build output (don't commit this — it's generated via `npm run build`)
-build/
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# OS / editor junk
-.DS_Store
-Thumbs.db
-*.log
-
-# IDE settings (optional, depending on your team)
-.vscode/
-.idea/
-*.sw?
-
-# dotenv files (optional — if you store secrets locally)
-.env
-.env.local
-.env.*.local
-
-# Tests / coverage output
-coverage/
-*.lcov
-
-# Optional: lock file (keep only one depending on your package manager)
-package-lock.json
-# or
-yarn.lock
-# or
-pnpm-lock.yaml
-
-
-# Remove from Git index (not from disk)
-git rm --cached filename_or_folder
-
-# Example:
-git rm -r --cached node_modules
-
-# Then commit
-git commit -m "Remove node_modules from version control"
+// Hook to use auth context
+export const useAuth = () => useContext(AuthContext);
