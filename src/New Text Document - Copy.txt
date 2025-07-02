@@ -121,3 +121,12 @@ yarn.lock
 # or
 pnpm-lock.yaml
 
+
+# Remove from Git index (not from disk)
+git rm --cached filename_or_folder
+
+# Example:
+git rm -r --cached node_modules
+
+# Then commit
+git commit -m "Remove node_modules from version control"
