@@ -1,0 +1,88 @@
+// src/App.js
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import Login from './pages/Login';
+import Home from './pages/Home';
+
+// Protect routes based on login status
+function PrivateRoute({ children }) {
+  const { token } = useAuth();
+  return token ? children : <Navigate to="/login" />;
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+
+          <Route
+            path="/"
+            element={
+              <PrivateRoute>
+                <Home />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Optional fallback route */}
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
+}
+
+export default App;
+
+
+
+
+// src/pages/Home.js
+import React from 'react';
+import { useAuth } from '../context/AuthContext';
+
+export default function Home() {
+  const { metadata, logout } = useAuth();
+
+  return (
+    <div>
+      <h1>Home Page</h1>
+      <p>Welcome to the app!</p>
+
+      {metadata && (
+        <div>
+          <h3>Metadata:</h3>
+          <pre>{JSON.stringify(metadata, null, 2)}</pre>
+        </div>
+      )}
+
+      <button onClick={logout}>Logout</button>
+    </div>
+  );
+}
+
+
+function App() {
+  return (
+    <AuthProvider>             {/* ✅ Auth context provider here */}
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/"
+            element={
+              <PrivateRoute>
+                <Home />
+              </PrivateRoute>
+            }
+          />
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
+}
+
+
