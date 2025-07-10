@@ -1,54 +1,166 @@
-// src/context/AuthContext.js
-import React, { createContext, useState, useContext } from 'react';
+import React, { useEffect, useState } from 'react';
+import { DataGrid } from '@mui/x-data-grid';
+import {
+  Button,
+  TextField,
+} from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
+import ConfirmDialog from './ConfirmDialog';
 
-const AuthContext = createContext();
+const InterestGrid = () => {
+  const [rows, setRows] = useState([]);
+  const [openAddDialog, setOpenAddDialog] = useState(false);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [newRow, setNewRow] = useState({ startDate: '', interestRate: '' });
+  const [rowToDelete, setRowToDelete] = useState(null);
 
-export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(localStorage.getItem('authToken'));
-  const [metadata, setMetadata] = useState(null);
-  const [error, setError] = useState(null);
+  useEffect(() => {
+    const data = [
+      { id: 1, startDate: '2025-07-08', interestRate: 3.5 },
+      { id: 2, startDate: '2025-07-06', interestRate: 2.8 },
+      { id: 3, startDate: '2025-07-09', interestRate: 4.1 },
+    ];
+    const sorted = [...data].sort(
+      (a, b) => new Date(a.startDate) - new Date(b.startDate)
+    );
+    setRows(sorted);
+  }, []);
 
-  const login = async (username, password) => {
-    try {
-      // 1. Send login request
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-
-      if (!res.ok) throw new Error('Login failed');
-
-      const { token } = await res.json();
-      localStorage.setItem('authToken', token);
-      setToken(token);
-
-      // 2. Fetch metadata using token
-      const metaRes = await fetch('/api/metadata', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!metaRes.ok) throw new Error('Metadata fetch failed');
-      const metaDataJson = await metaRes.json();
-      setMetadata(metaDataJson);
-    } catch (err) {
-      console.error(err);
-      setError(err.message);
-    }
+  const handleDeleteFirstRow = () => {
+    setRows((prev) => {
+      const newList = [...prev];
+      newList.shift();
+      return newList;
+    });
+    setOpenDeleteDialog(false);
   };
 
-  const logout = () => {
-    setToken(null);
-    setMetadata(null);
-    localStorage.removeItem('authToken');
+  const handleAddRow = () => {
+    const newId = Math.max(0, ...rows.map((r) => r.id)) + 1;
+    const newEntry = {
+      id: newId,
+      startDate: newRow.startDate,
+      interestRate: parseFloat(newRow.interestRate),
+    };
+    const updatedRows = [newEntry, ...rows];
+    const sorted = updatedRows.sort(
+      (a, b) => new Date(a.startDate) - new Date(b.startDate)
+    );
+    setRows(sorted);
+    setOpenAddDialog(false);
+    setNewRow({ startDate: '', interestRate: '' });
   };
+
+  const columns = [
+    { field: 'startDate', headerName: 'Start Date', width: 150 },
+    { field: 'interestRate', headerName: 'Interest Rate (%)', width: 150 },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 150,
+      renderCell: (params) => {
+        if (params.row.id === rows[0]?.id) {
+          return (
+            <Button
+              color="error"
+              variant="outlined"
+              onClick={() => {
+                setRowToDelete(rows[0]);
+                setOpenDeleteDialog(true);
+              }}
+            >
+              Delete
+            </Button>
+          );
+        }
+        return null;
+      },
+    },
+  ];
 
   return (
-    <AuthContext.Provider value={{ token, metadata, login, logout, error }}>
-      {children}
-    </AuthContext.Provider>
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <div style={{ padding: 20 }}>
+        <h2>Interest Rate Grid</h2>
+
+        {/* Inputs */}
+        <div style={{ marginBottom: 10 }}>
+          <DatePicker
+            label="Start Date"
+            disablePast
+            value={newRow.startDate ? dayjs(newRow.startDate) : null}
+            onChange={(newValue) =>
+              setNewRow({ ...newRow, startDate: newValue?.format('YYYY-MM-DD') })
+            }
+            format="YYYY-MM-DD"
+            slotProps={{ textField: { variant: 'outlined', style: { marginRight: 10 } } }}
+          />
+          <TextField
+            label="Interest Rate"
+            type="number"
+            value={newRow.interestRate}
+            onChange={(e) =>
+              setNewRow({ ...newRow, interestRate: e.target.value })
+            }
+            style={{ marginRight: 10 }}
+          />
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => {
+              if (newRow.startDate && newRow.interestRate) {
+                setOpenAddDialog(true);
+              } else {
+                alert('Please enter both Start Date and Interest Rate');
+              }
+            }}
+          >
+            Add Row
+          </Button>
+        </div>
+
+        {/* Grid */}
+        <div style={{ height: 400, width: '100%' }}>
+          <DataGrid rows={rows} columns={columns} pageSize={5} />
+        </div>
+
+        {/* Confirm Delete Dialog */}
+        <ConfirmDialog
+          open={openDeleteDialog}
+          title="Confirm Delete"
+          content={
+            rowToDelete ? (
+              <>
+                Are you sure you want to delete this row?<br />
+                <strong>Start Date:</strong> {rowToDelete.startDate}<br />
+                <strong>Interest Rate:</strong> {rowToDelete.interestRate}%
+              </>
+            ) : null
+          }
+          onCancel={() => setOpenDeleteDialog(false)}
+          onConfirm={handleDeleteFirstRow}
+        />
+
+        {/* Confirm Add Dialog */}
+        <ConfirmDialog
+          open={openAddDialog}
+          title="Confirm Add"
+          content={
+            <>
+              Are you sure you want to add this row?<br />
+              <strong>Start Date:</strong> {newRow.startDate}<br />
+              <strong>Interest Rate:</strong> {newRow.interestRate}%
+            </>
+          }
+          onCancel={() => setOpenAddDialog(false)}
+          onConfirm={handleAddRow}
+        />
+      </div>
+    </LocalizationProvider>
   );
 };
 
-// Hook to use auth context
-export const useAuth = () => useContext(AuthContext);
+export default InterestGrid;
