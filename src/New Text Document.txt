@@ -1,10 +1,5 @@
-const inputStyles = {
-  width: 200,
-  height: 56, // default MUI height
-  marginRight: 2,
-  '& .MuiInputBase-root': {
-    height: '100%',
-    padding: '0 14px', // consistent horizontal padding
-    boxSizing: 'border-box',
-  },
-};
+ sx={{
+    '& .MuiDataGrid-columnHeaders': {
+      fontWeight: 'bold', // or 600/700
+    },
+  }}
