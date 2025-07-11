@@ -1,5 +1,0 @@
- sx={{
-    '& .MuiDataGrid-columnHeaders': {
-      fontWeight: 'bold', // or 600/700
-    },
-  }}
