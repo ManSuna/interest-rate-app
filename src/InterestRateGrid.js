@@ -10,13 +10,17 @@ export default function InterestGrid({ rows, onDelete }) {
       field: 'actions',
       headerName: 'Actions',
       width: 150,
-      renderCell: (params) =>
-        params.api.getRowIndex(params.id) === 0 ? (
+      renderCell: (params) => {
+        const sortedRowIds = params.api.getAllRowIds();
+        const isFirstRow = sortedRowIds[0] === params.id;
+
+        return isFirstRow ? (
           <Button variant="outlined" color="error" onClick={() => onDelete(params.row)}>
             Delete
           </Button>
-        ) : null,
-    },
+        ) : null;
+      }
+    }
   ];
 
   return (
