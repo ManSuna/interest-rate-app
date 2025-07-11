@@ -3,4 +3,6 @@
 </Button>
 
 
-{showForm ? 'Cancel' : 'Add Interest Rate'}
+<Button variant="contained" onClick={() => setShowForm((prev) => !prev)}>
+  Add Interest Rate
+</Button>
