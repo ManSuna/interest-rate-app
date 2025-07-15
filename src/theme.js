@@ -1,0 +1,25 @@
+<plugin>
+  <groupId>com.github.eirslett</groupId>
+  <artifactId>frontend-maven-plugin</artifactId>
+  <version>1.8.0</version>
+  <executions>
+    <execution>
+      <id>install node and npm</id>
+      <goals><goal>install-node-and-npm</goal></goals>
+      <configuration>
+        <nodeVersion>v14.18.0</nodeVersion>
+        <npmVersion>6.14.15</npmVersion>
+      </configuration>
+    </execution>
+    <execution>
+      <id>npm install</id>
+      <goals><goal>npm</goal></goals>
+      <configuration><arguments>install</arguments></configuration>
+    </execution>
+    <execution>
+      <id>npm run build</id>
+      <goals><goal>npm</goal></goals>
+      <configuration><arguments>run build</arguments></configuration>
+    </execution>
+  </executions>
+</plugin>
