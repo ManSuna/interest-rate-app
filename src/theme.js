@@ -1,43 +1,32 @@
 <project>
   <parent>…</parent>
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>ui</artifactId>
-  <packaging>pom</packaging>
+  <artifactId>backend</artifactId>
+  <packaging>jar</packaging>
 
   <build>
     <plugins>
       <plugin>
-        <groupId>com.github.eirslett</groupId>
-        <artifactId>frontend-maven-plugin</artifactId>
-        <version>1.14.1</version>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.2.0</version>
         <executions>
           <execution>
-            <id>install-node-and-npm</id>
-            <goals><goal>install-node-and-npm</goal></goals>
-            <phase>generate-resources</phase>
+            <id>copy-ui-assets</id>
+            <phase>process-resources</phase>
+            <goals><goal>copy-resources</goal></goals>
             <configuration>
-              <nodeVersion>v18.17.0</nodeVersion>
-              <npmVersion>9.8.1</npmVersion>
-            </configuration>
-          </execution>
-          <execution>
-            <id>npm install</id>
-            <goals><goal>npm</goal></goals>
-            <phase>generate-resources</phase>
-            <configuration>
-              <arguments>install</arguments>
-            </configuration>
-          </execution>
-          <execution>
-            <id>npm build</id>
-            <goals><goal>npm</goal></goals>
-            <phase>generate-resources</phase>
-            <configuration>
-              <arguments>run build</arguments>
+              <outputDirectory>${project.build.outputDirectory}/static</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${project.parent.basedir}/ui/build</directory>
+                  <filtering>false</filtering>
+                </resource>
+              </resources>
             </configuration>
           </execution>
         </executions>
       </plugin>
+      <!-- e.g. spring-boot-maven-plugin -->
     </plugins>
   </build>
 </project>
