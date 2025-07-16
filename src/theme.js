@@ -1,32 +1,9 @@
-<project>
-  <parent>…</parent>
-  <modelVersion>4.0.0</modelVersion>
-  <artifactId>backend</artifactId>
-  <packaging>jar</packaging>
-
-  <build>
-    <plugins>
-      <plugin>
-        <artifactId>maven-resources-plugin</artifactId>
-        <version>3.2.0</version>
-        <executions>
-          <execution>
-            <id>copy-ui-assets</id>
-            <phase>process-resources</phase>
-            <goals><goal>copy-resources</goal></goals>
-            <configuration>
-              <outputDirectory>${project.build.outputDirectory}/static</outputDirectory>
-              <resources>
-                <resource>
-                  <directory>${project.parent.basedir}/ui/build</directory>
-                  <filtering>false</filtering>
-                </resource>
-              </resources>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <!-- e.g. spring-boot-maven-plugin -->
-    </plugins>
-  </build>
-</project>
+<plugin>
+  <groupId>com.github.eirslett</groupId>
+  <artifactId>frontend-maven-plugin</artifactId>
+  <version>1.14.1</version>
+  <configuration>
+    <skip.npm>${skip.npm}</skip.npm>
+  </configuration>
+  <!-- executions go here -->
+</plugin>
