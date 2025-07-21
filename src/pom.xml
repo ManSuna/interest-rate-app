@@ -55,3 +55,26 @@
     </plugins>
   </build>
 </project>
+
+
+<project>
+  <parent>…</parent>
+  <artifactId>jai-backend</artifactId>
+  <dependencies>
+    <dependency>
+      <groupId>com.example</groupId>
+      <artifactId>jai-console</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <!-- Spring Boot starters: web, security, etc. -->
+  </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>
+
