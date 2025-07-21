@@ -1,92 +1,59 @@
-<project>
-  <parent>…</parent>
-  <artifactId>jai-console</artifactId>
-  <packaging>jar</packaging>
-  <properties>
-    <node.version>v20.9.0</node.version>
-    <frontend-maven-plugin.version>1.14.2</frontend-maven-plugin.version>
-  </properties>
+<!-- in jai-backend/pom.xml -->
+<build>
+  <plugins>
+    <!-- 1) Build frontend -->
+    <plugin>
+      <groupId>com.github.eirslett</groupId>
+      <artifactId>frontend-maven-plugin</artifactId>
+      <version>1.14.2</version>
+      <executions>
+        <execution>
+          <id>install node and npm</id>
+          <goals><goal>install-node-and-npm</goal></goals>
+          <configuration><nodeVersion>v18.17.0</nodeVersion></configuration>
+          <phase>generate-resources</phase>
+        </execution>
+        <execution>
+          <id>npm install</id>
+          <goals><goal>npm</goal></goals>
+          <phase>generate-resources</phase>
+          <configuration>
+            <arguments>install</arguments>
+            <workingDirectory>../jai-console</workingDirectory>
+          </configuration>
+        </execution>
+        <execution>
+          <id>npm run build</id>
+          <goals><goal>npm</goal></goals>
+          <phase>generate-resources</phase>
+          <configuration>
+            <arguments>run build</arguments>
+            <workingDirectory>../jai-console</workingDirectory>
+          </configuration>
+        </execution>
+      </executions>
+    </plugin>
 
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>com.github.eirslett</groupId>
-        <artifactId>frontend-maven-plugin</artifactId>
-        <version>${frontend-maven-plugin.version}</version>
-        <executions>
-          <execution>
-            <id>install-node-and-npm</id>
-            <goals><goal>install-node-and-npm</goal></goals>
-            <configuration><nodeVersion>${node.version}</nodeVersion></configuration>
-          </execution>
-          <execution>
-            <id>npm install</id>
-            <goals><goal>npm</goal></goals>
-            <phase>generate-resources</phase>
-          </execution>
-          <execution>
-            <id>npm run build</id>
-            <goals><goal>npm</goal></goals>
-            <phase>generate-resources</phase>
-            <configuration><arguments>run build</arguments></configuration>
-          </execution>
-        </executions>
-      </plugin>
-
-      <plugin>
-        <artifactId>maven-resources-plugin</artifactId>
-        <version>3.3.1</version>
-        <executions>
-          <execution>
-            <id>copy-react-build</id>
-            <phase>prepare-package</phase>
-            <goals><goal>copy-resources</goal></goals>
-            <configuration>
-              <outputDirectory>${project.build.directory}/../jai-backend/src/main/resources/static/console</outputDirectory>
-              <resources>
-                <resource>
-                  <directory>${project.build.directory}/dist</directory>
-                </resource>
-              </resources>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
-</project>
-
-
-<project>
-  <parent>…</parent>
-  <artifactId>jai-backend</artifactId>
-  <dependencies>
-    <dependency>
-      <groupId>com.example</groupId>
-      <artifactId>jai-console</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <!-- Spring Boot starters: web, security, etc. -->
-  </dependencies>
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
-      </plugin>
-    </plugins>
-  </build>
-</project>
-
-@Bean
-public SecurityFilterChain publicFilterChain(HttpSecurity http) throws Exception {
-    http
-      .securityMatcher("/console/**", "/favicon.ico", "/error", "/**/*.js", "/**/*.css", "/**/*.png") 
-      .authorizeHttpRequests(auth ->
-          auth.anyRequest().permitAll()
-      )
-      .csrf().disable(); // if you're fine without CSRF protection here
-    return http.build();
-}
-
-
+    <!-- 2) Copy build output -->
+    <plugin>
+      <artifactId>maven-resources-plugin</artifactId>
+      <version>3.3.1</version>
+      <executions>
+        <execution>
+          <id>copy-react-build</id>
+          <phase>prepare-package</phase>
+          <goals><goal>copy-resources</goal></goals>
+          <configuration>
+            <outputDirectory>${project.build.outputDirectory}/static/console</outputDirectory>
+            <resources>
+              <resource>
+                <directory>../jai-console/build</directory>
+                <filtering>false</filtering>
+              </resource>
+            </resources>
+          </configuration>
+        </execution>
+      </executions>
+    </plugin>
+  </plugins>
+</build>
