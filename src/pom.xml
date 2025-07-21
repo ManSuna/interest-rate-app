@@ -78,3 +78,15 @@
   </build>
 </project>
 
+@Bean
+public SecurityFilterChain publicFilterChain(HttpSecurity http) throws Exception {
+    http
+      .securityMatcher("/console/**", "/favicon.ico", "/error", "/**/*.js", "/**/*.css", "/**/*.png") 
+      .authorizeHttpRequests(auth ->
+          auth.anyRequest().permitAll()
+      )
+      .csrf().disable(); // if you're fine without CSRF protection here
+    return http.build();
+}
+
+
