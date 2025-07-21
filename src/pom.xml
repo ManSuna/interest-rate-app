@@ -1,59 +1,27 @@
-<!-- in jai-backend/pom.xml -->
-<build>
-  <plugins>
-    <!-- 1) Build frontend -->
-    <plugin>
-      <groupId>com.github.eirslett</groupId>
-      <artifactId>frontend-maven-plugin</artifactId>
-      <version>1.14.2</version>
-      <executions>
-        <execution>
-          <id>install node and npm</id>
-          <goals><goal>install-node-and-npm</goal></goals>
-          <configuration><nodeVersion>v18.17.0</nodeVersion></configuration>
-          <phase>generate-resources</phase>
-        </execution>
-        <execution>
-          <id>npm install</id>
-          <goals><goal>npm</goal></goals>
-          <phase>generate-resources</phase>
-          <configuration>
-            <arguments>install</arguments>
-            <workingDirectory>../jai-console</workingDirectory>
-          </configuration>
-        </execution>
-        <execution>
-          <id>npm run build</id>
-          <goals><goal>npm</goal></goals>
-          <phase>generate-resources</phase>
-          <configuration>
-            <arguments>run build</arguments>
-            <workingDirectory>../jai-console</workingDirectory>
-          </configuration>
-        </execution>
-      </executions>
-    </plugin>
+package com.mycompany.jai.backend.controller;
 
-    <!-- 2) Copy build output -->
-    <plugin>
-      <artifactId>maven-resources-plugin</artifactId>
-      <version>3.3.1</version>
-      <executions>
-        <execution>
-          <id>copy-react-build</id>
-          <phase>prepare-package</phase>
-          <goals><goal>copy-resources</goal></goals>
-          <configuration>
-            <outputDirectory>${project.build.outputDirectory}/static/console</outputDirectory>
-            <resources>
-              <resource>
-                <directory>../jai-console/build</directory>
-                <filtering>false</filtering>
-              </resource>
-            </resources>
-          </configuration>
-        </execution>
-      </executions>
-    </plugin>
-  </plugins>
-</build>
+import org.springframework.boot.web.error.ErrorAttributeOptions;
+import org.springframework.boot.web.servlet.error.ErrorController;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+@Controller
+public class SpaIndexController implements ErrorController {
+
+    // Catch-all for /console and react routes
+    @RequestMapping({"/console", "/console/**"})
+    public String forwardConsole() {
+        return "forward:/console/index.html";
+    }
+
+    // Handle direct refreshes and unknown routes under /console
+    @RequestMapping("/error")
+    public String handleError(HttpServletRequest request, HttpServletResponse response) {
+        // Only forward browser GETs — let API or other errors process normally
+        return request.getMethod().equalsIgnoreCase("GET")
+            ? "forward:/console/index.html"
+            : null;
+    }
+}
