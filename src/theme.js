@@ -1,13 +1,88 @@
+.dashboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+.card {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  text-align: center;
+}
+
+.card-title {
+  color: #555;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.card-value {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.status-green {
+  color: green;
+}
+
+.status-red {
+  color: red;
+}
+
+
 import React, { useEffect, useState } from 'react';
+import './Dashboard.css';
 
-const StatusCard = ({ title, value, statusColor }) => { return ( <div className="bg-white p-4 rounded-2xl shadow text-center"> <h4 className="text-gray-600 text-sm mb-1">{title}</h4> <p className={text-xl font-semibold ${statusColor ? text-${statusColor}-600 : 'text-black'}}> {value} </p> </div> ); };
+const Dashboard = () => {
+  const [data, setData] = useState({
+    cycleDate: '',
+    interestRate: '',
+    dailyJobStatus: '',
+    lastCycleJobStatus: '',
+  });
 
-const getColor = (status) => { if (!status) return 'gray'; return status.toLowerCase().includes('fail') ? 'red' : 'green'; };
+  useEffect(() => {
+    // Simulated data
+    setTimeout(() => {
+      setData({
+        cycleDate: '2025-07-29',
+        interestRate: 5.25,
+        dailyJobStatus: 'Completed',
+        lastCycleJobStatus: 'Failed',
+      });
+    }, 500);
+  }, []);
 
-const Dashboard = () => { const [data, setData] = useState({ cycleDate: '', interestRate: '', dailyJobStatus: '', lastCycleJobStatus: '', });
+  const getStatusClass = (status) =>
+    status.toLowerCase().includes('fail') ? 'status-red' : 'status-green';
 
-useEffect(() => { // Simulated API call setTimeout(() => { setData({ cycleDate: '2025-07-29', interestRate: 5.25, dailyJobStatus: 'Completed', lastCycleJobStatus: 'Failed', }); }, 500); }, []);
-
-return ( <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"> <StatusCard title="Current Cycle Date" value={data.cycleDate || 'N/A'} /> <StatusCard title="Current Interest Rate" value={${data.interestRate}%} /> <StatusCard title="Daily Job Status" value={data.dailyJobStatus || 'N/A'} statusColor={getColor(data.dailyJobStatus)} /> <StatusCard title="Last Cycle Job Status" value={data.lastCycleJobStatus || 'N/A'} statusColor={getColor(data.lastCycleJobStatus)} /> </div> ); };
+  return (
+    <div className="dashboard">
+      <div className="card">
+        <div className="card-title">Current Cycle Date</div>
+        <div className="card-value">{data.cycleDate}</div>
+      </div>
+      <div className="card">
+        <div className="card-title">Current Interest Rate</div>
+        <div className="card-value">{data.interestRate}%</div>
+      </div>
+      <div className="card">
+        <div className="card-title">Daily Job Status</div>
+        <div className={`card-value ${getStatusClass(data.dailyJobStatus)}`}>
+          {data.dailyJobStatus}
+        </div>
+      </div>
+      <div className="card">
+        <div className="card-title">Last Cycle Job Status</div>
+        <div className={`card-value ${getStatusClass(data.lastCycleJobStatus)}`}>
+          {data.lastCycleJobStatus}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default Dashboard;
