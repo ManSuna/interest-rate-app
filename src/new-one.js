@@ -1,15 +1,25 @@
-const validate = () => {
-  const newErrors = {};
-  if (!startDate) newErrors.startDate = 'Start date is required';
-  if (!interestRate || isNaN(interestRate) || interestRate <= 0)
-    newErrors.interestRate = 'Enter a valid interest rate';
+.tabs-container {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap; /* allows wrapping if needed */
+}
 
-  // ✅ Example: check if startDate already exists
-  const startDateStr = startDate?.format('YYYY-MM-DD');
-  if (startDateStr && rows.some(row => row.startDate === startDateStr)) {
-    newErrors.startDate = 'Start date already exists';
+.tab {
+  padding: 10px 20px;
+  border: 1px solid #ccc;
+  background: white;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: #007bff;
+  color: white;
+}
+
+/* 📱 Stack vertically on small screens */
+@media (max-width: 600px) {
+  .tabs-container {
+    flex-direction: column;
+    align-items: stretch;
   }
-
-  setErrors(newErrors);
-  return Object.keys(newErrors).length === 0;
-};
+}
