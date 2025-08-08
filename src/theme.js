@@ -1,43 +1,29 @@
-// inside Formik render: ({ values, setFieldValue }) => ( ... )
+export const METADATA_KEY = 'metadata';
 
-<DatePicker
-  label="Business Date"
-  value={values.businessDate}
-  onChange={async (d) => {
-    if (!d) {
-      // clear date and dependent fields if user clears
-      setFieldValue('businessDate', null, false);
-      setFieldValue('fedCloseTime', '', false);
-      setFieldValue('fedBalance', '', false);
-      setFieldValue('rate', '', false);
-      return;
-    }
+export function getMetadata() {
+  try {
+    if (typeof window === 'undefined') return null; // For SSR environments
+    const raw = localStorage.getItem(METADATA_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
-    const dateStr = d.format('YYYY-MM-DD');
-    setFieldValue('businessDate', dateStr, false);
+// Safe getter by "a.b.c" style path
+export function getMetaPath(obj, path, fallback) {
+  if (!obj) return fallback;
+  return path
+    .split('.')
+    .reduce((acc, key) => (acc && typeof acc === 'object' ? acc[key] : undefined), obj) ??
+    fallback;
+}
 
-    try {
-      const res = await fetch(`/api/rates/defaults?businessDate=${encodeURIComponent(dateStr)}`);
-      if (!res.ok) throw new Error('Failed to load defaults');
-      const data = await res.json(); // { fedCloseTime, fedBalance, rate }
+export function setMetadata(value) {
+  localStorage.setItem(METADATA_KEY, JSON.stringify(value ?? {}));
+}
 
-      // OVERRIDE existing values no matter what
-      setFieldValue('fedCloseTime', data.fedCloseTime ?? '', false);
-      setFieldValue('fedBalance', data.fedBalance ?? '', false);
-      setFieldValue('rate', data.rate ?? '', false);
-    } catch (e) {
-      // optional: surface error
-      // setFieldValue('serverError', 'Could not load defaults', false);
-    }
-  }}
-  format="YYYY-MM-DD"
-  slotProps={{
-    textField: {
-      id: 'businessDate',
-      name: 'businessDate',
-      fullWidth: true,
-      inputProps: { placeholder: 'YYYY-MM-DD' },
-      style: { width: '300px' },
-    },
-  }}
-/>
+export function mergeMetadata(patch) {
+  const cur = getMetadata() ?? {};
+  setMetadata({ ...cur, ...patch });
+}
