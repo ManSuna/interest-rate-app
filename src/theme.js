@@ -1,103 +1,110 @@
-import { useMemo, useEffect } from "react";
-import dayjs from "dayjs";
-import { alpha } from "@mui/material/styles";
-import { Box, Chip, Stack, Typography } from "@mui/material";
-import { DataGrid, gridClasses } from "@mui/x-data-grid";
+// CompletedCycleJobTable.js
+import { useMemo, useState } from "react";
+import {
+  Box, Button, Chip, Dialog, DialogTitle, DialogContent,
+  Grid, Stack, Table, TableHead, TableRow, TableCell, TableBody, Typography
+} from "@mui/material";
 
-// helpers
-const fmtDate = (d) => (d ? dayjs(d).format("YYYY-MM-DD") : "—");
-const fmtNum = (v) => {
-  if (v == null) return "—";
-  const n = typeof v === "string" ? Number(v.replace(/,/g, "")) : Number(v);
-  return Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—";
-};
+export default function CompletedCycleJobTable({ job }) {
+  const [open, setOpen] = useState(false);
 
-export default function DailyJobsGrid({ jobs }) {
-  // Build rows safely and name them gridRows (not "rows")
-  const gridRows = useMemo(() => {
-    const arr = Array.isArray(jobs) ? jobs : [];
-    return arr
-      .slice()
-      .sort((a, b) => new Date(b.businessDate) - new Date(a.businessDate))
-      .map((j, i) => ({
-        id: i,
-        businessDate: j.businessDate ?? null,
-        resultCode: j.resultCode ?? null,
-        rtpTotalInterest: j.rtpTotalInterest ?? null,
-        _raw: j,
-      }));
-  }, [jobs]);
+  // Build a single table row if job exists
+  const row = useMemo(() => {
+    if (!job) return null;
+    return {
+      executionTs: job.executionTs ?? "",
+      resultCode: job.resultCode ?? null,
+      // same field as Daily Jobs style, prefer rtp*, fallback to fed*
+      calculatedInterestTotal:
+        job.rtpInterestTotal ?? job.fedInterestTotal ?? job.rtpTotalInterest ?? "",
+      _raw: job,
+    };
+  }, [job]);
 
-  // optional: debug safely
-  useEffect(() => {
-    // comment out when done
-    // console.table(gridRows);
-  }, [gridRows]);
+  if (!row) {
+    return (
+      <Typography variant="body2" color="text.disabled">No completed cycle job</Typography>
+    );
+  }
 
-  const columns = [
-    {
-      field: "businessDate",
-      headerName: "Business Date",
-      flex: 1,
-      minWidth: 140,
-      valueFormatter: (params) => fmtDate(params?.value ?? params?.row?.businessDate),
-    },
-    {
-      field: "resultCode",
-      headerName: "Status",
-      flex: 1,
-      minWidth: 120,
-      sortable: false,
-      renderCell: (params) => {
-        const ok = (params?.value ?? params?.row?.resultCode) === 0;
-        return (
-          <Chip
-            size="small"
-            label={ok ? "Success" : "Failed"}
-            color={ok ? "success" : "error"}
-            variant={ok ? "outlined" : "filled"}
-          />
-        );
-      },
-    },
-    {
-      field: "rtpTotalInterest",
-      headerName: "Calculated Interest",
-      flex: 1,
-      minWidth: 170,
-      align: "right",
-      headerAlign: "right",
-      valueFormatter: (params) => fmtNum(params?.value ?? params?.row?.rtpTotalInterest),
-    },
-  ];
+  const ok = row.resultCode === 0;
 
   return (
-    <Box
-      sx={{
-        height: 280,
-        width: "100%",
-        "& .row-error": {
-          backgroundColor: (t) => alpha(t.palette.error.light, 0.12),
-          "&:hover": { backgroundColor: (t) => alpha(t.palette.error.light, 0.18) },
-        },
-        [`& .${gridClasses.cell}`]: { outline: "none" },
-      }}
-    >
-      <DataGrid
-        rows={gridRows} // <-- use gridRows here
-        columns={columns}
-        pageSizeOptions={[5, 10]}
-        initialState={{ pagination: { paginationModel: { pageSize: 5 } } }}
-        disableRowSelectionOnClick
-        getRowClassName={(p) => (p.row.resultCode === 0 ? "" : "row-error")}
-        slots={{
-          noRowsOverlay: () => (
-            <Stack height="100%" alignItems="center" justifyContent="center">
-              <Typography color="text.disabled">No jobs to display</Typography>
-            </Stack>
-          ),
-        }}
-      />
-    </Box>
+    <>
+      <Box sx={{ width: "100%" }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 600 }}>Execution Timestamp</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 600 }}>
+                Calculated Interest Total
+              </TableCell>
+              <TableCell sx={{ width: 96 }} />
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            <TableRow>
+              <TableCell>{row.executionTs}</TableCell>
+              <TableCell>
+                <Chip
+                  size="small"
+                  label={ok ? "Success" : "Failed"}
+                  color={ok ? "success" : "error"}
+                />
+              </TableCell>
+              <TableCell align="right">{row.calculatedInterestTotal}</TableCell>
+              <TableCell>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => setOpen(true)}
+                >
+                  More
+                </Button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </Box>
+
+      {/* Details dialog with the rest of the fields */}
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Completed Cycle Job — Details</DialogTitle>
+        <DialogContent dividers>
+          <DetailsGrid data={row._raw} omitKeys={[
+            "executionTs",
+            "resultCode",
+            "rtpInterestTotal",
+            "fedInterestTotal",
+            "rtpTotalInterest" // in case backend uses this name
+          ]}/>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+/** Renders key/value pairs as a compact grid (raw values, no formatting) */
+function DetailsGrid({ data, omitKeys = [] }) {
+  if (!data) return null;
+  const entries = Object.entries(data).filter(([k]) => !omitKeys.includes(k));
+  return (
+    <Stack spacing={1}>
+      <Grid container columnSpacing={2} rowSpacing={0.5}>
+        {entries.map(([k, v]) => (
+          <Grid container item xs={12} key={k}>
+            <Grid item xs={6}>
+              <Typography color="text.secondary">{k}</Typography>
+            </Grid>
+            <Grid item xs={6}>
+              <Typography sx={{ wordBreak: "break-word" }}>
+                {v === null || v === undefined ? "" : String(v)}
+              </Typography>
+            </Grid>
+          </Grid>
+        ))}
+      </Grid>
+    </Stack>
   );
 }
