@@ -1,45 +1,171 @@
-function normalizeDashboardResponse(raw) {
-  if (!raw) return null;
+// DailyJobsGrid.jsx
+import { useMemo, useState } from "react";
+import dayjs from "dayjs";
+import { alpha } from "@mui/material/styles";
+import {
+  Box, Chip, Drawer, Divider, Grid, Typography, Stack,
+} from "@mui/material";
+import {
+  DataGrid,
+  gridClasses
+} from "@mui/x-data-grid";
 
-  const toCard = (obj, label) => ({
-    label,
-    startDate: obj.cycle?.start ?? null,
-    endDate: obj.cycle?.end ?? null,
-    interestRates: Array.isArray(obj.rates) ? obj.rates : [],
-    dailyJobs: Array.isArray(obj.dailyJobs) ? obj.dailyJobs : [], // ✅ force array
-    completedCycleJob: obj.completedCycleJob ?? null
-  });
+// utils
+const fmtDate = (d) => (d ? dayjs(d).format("YYYY-MM-DD") : "—");
+const fmtTs = (d) => (d ? dayjs(d).format("YYYY-MM-DD HH:mm:ss") : "—");
+const fmtNum = (n) => (n ?? n === 0 ? Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—");
 
-  const out = [];
-  if (raw.currentCycle) out.push(toCard(raw.currentCycle, "Current Cycle"));
-  if (raw.lastCycle) out.push(toCard(raw.lastCycle, "Last Cycle"));
-  return out;
+export default function DailyJobsGrid({ jobs = [] }) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(null); // store raw row for drawer
+
+  // rows for the grid (keep raw for details)
+  const rows = useMemo(() => {
+    const arr = Array.isArray(jobs) ? jobs : [];
+    return arr
+      .slice()
+      .sort((a, b) => new Date(b.businessDate) - new Date(a.businessDate))
+      .map((j, i) => ({
+        id: i,
+        businessDate: j.businessDate,
+        resultCode: j.resultCode,
+        rtpTotalInterest: j.rtpTotalInterest,
+        _raw: j,
+      }));
+  }, [jobs]);
+
+  const columns = [
+    {
+      field: "businessDate",
+      headerName: "Business Date",
+      flex: 1,
+      minWidth: 140,
+      valueFormatter: ({ value }) => fmtDate(value),
+    },
+    {
+      field: "resultCode",
+      headerName: "Status",
+      flex: 1,
+      minWidth: 120,
+      sortable: false,
+      renderCell: (params) => {
+        const ok = params.value === 0;
+        return (
+          <Chip
+            size="small"
+            label={ok ? "Success" : "Failed"}
+            color={ok ? "success" : "error"}
+            variant={ok ? "outlined" : "filled"}
+          />
+        );
+      },
+    },
+    {
+      field: "rtpTotalInterest",
+      headerName: "Calculated Interest",
+      flex: 1,
+      minWidth: 170,
+      align: "right",
+      headerAlign: "right",
+      valueFormatter: ({ value }) => fmtNum(value),
+    },
+  ];
+
+  return (
+    <>
+      <Box
+        sx={{
+          height: 280,
+          width: "100%",
+          "& .row-error": {
+            backgroundColor: (theme) => alpha(theme.palette.error.light, 0.12),
+            "&:hover": {
+              backgroundColor: (theme) => alpha(theme.palette.error.light, 0.18),
+            },
+          },
+          [`& .${gridClasses.cell}`]: { outline: "none" }
+        }}
+      >
+        <DataGrid
+          rows={rows}
+          columns={columns}
+          pageSizeOptions={[5, 10]}
+          initialState={{
+            pagination: { paginationModel: { pageSize: 5 } },
+          }}
+          disableRowSelectionOnClick
+          getRowClassName={(params) =>
+            params.row.resultCode === 0 ? "" : "row-error"
+          }
+          onRowClick={(params) => {
+            setActive(params.row._raw);
+            setOpen(true);
+          }}
+          slots={{
+            noRowsOverlay: () => (
+              <Stack height="100%" alignItems="center" justifyContent="center">
+                <Typography color="text.disabled">No jobs to display</Typography>
+              </Stack>
+            ),
+          }}
+        />
+      </Box>
+
+      {/* SECOND STAGE: details drawer */}
+      <Drawer anchor="right" open={open} onClose={() => setOpen(false)}>
+        <Box sx={{ width: 380, p: 2 }}>
+          <Typography variant="h6" fontWeight={700} gutterBottom>
+            Job Details
+          </Typography>
+          {active ? (
+            <Stack spacing={2}>
+              <Grid container columnSpacing={2} rowSpacing={1}>
+                <Grid item xs={6}><Typography color="text.secondary">Business Date</Typography></Grid>
+                <Grid item xs={6}><Typography>{fmtDate(active.businessDate)}</Typography></Grid>
+
+                <Grid item xs={6}><Typography color="text.secondary">Status</Typography></Grid>
+                <Grid item xs={6}>
+                  <Chip
+                    size="small"
+                    label={active.resultCode === 0 ? "Success" : "Failed"}
+                    color={active.resultCode === 0 ? "success" : "error"}
+                  />
+                </Grid>
+
+                <Grid item xs={12}><Divider /></Grid>
+
+                <Grid item xs={6}><Typography color="text.secondary">Calculated Interest</Typography></Grid>
+                <Grid item xs={6}><Typography>{fmtNum(active.rtpTotalInterest)}</Typography></Grid>
+
+                <Grid item xs={6}><Typography color="text.secondary">RTP Total Position</Typography></Grid>
+                <Grid item xs={6}><Typography>{fmtNum(active.rtpTotalPosition)}</Typography></Grid>
+
+                <Grid item xs={6}><Typography color="text.secondary">Rate</Typography></Grid>
+                <Grid item xs={6}><Typography>{fmtNum(active.rate)}</Typography></Grid>
+
+                <Grid item xs={6}><Typography color="text.secondary">Exec Timestamp</Typography></Grid>
+                <Grid item xs={6}><Typography>{fmtTs(active.executionTs)}</Typography></Grid>
+
+                <Grid item xs={6}><Typography color="text.secondary">FED Close Time</Typography></Grid>
+                <Grid item xs={6}><Typography>{fmtTs(active.fedCloseTime)}</Typography></Grid>
+
+                <Grid item xs={6}><Typography color="text.secondary">FED Balance</Typography></Grid>
+                <Grid item xs={6}><Typography>{fmtNum(active.fedBalance)}</Typography></Grid>
+
+                <Grid item xs={12}><Divider /></Grid>
+
+                <Grid item xs={6}><Typography color="text.secondary">Result Code</Typography></Grid>
+                <Grid item xs={6}><Typography>{active.resultCode ?? "—"}</Typography></Grid>
+
+                <Grid item xs={6}><Typography color="text.secondary">Error Message</Typography></Grid>
+                <Grid item xs={6}><Typography>{active.errorMessage || "—"}</Typography></Grid>
+              </Grid>
+            </Stack>
+          ) : (
+            <Typography color="text.disabled">Select a job to see details</Typography>
+          )}
+        </Box>
+      </Drawer>
+    </>
+  );
 }
-
-
-<Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
-  Daily Jobs
-</Typography>
-
-{(data.dailyJobs ?? []).length > 0 ? (
-  <Table size="small" sx={{ mt: 1, width: "100%" }}>
-    <TableHead>
-      <TableRow>
-        <TableCell sx={{ fontWeight: 600 }}>Business Date</TableCell>
-        <TableCell align="right" sx={{ fontWeight: 600 }}>Rate</TableCell>
-        <TableCell align="right" sx={{ fontWeight: 600 }}>Executions</TableCell>
-      </TableRow>
-    </TableHead>
-    <TableBody>
-      {data.dailyJobs.map((job, idx) => (
-        <TableRow key={idx}>
-          <TableCell>{fmt(job.businessDate)}</TableCell>
-          <TableCell align="right">{Number(job.rate).toFixed(2)}</TableCell>
-          <TableCell align="right">{job.executionTs ? 1 : 0}</TableCell>
-        </TableRow>
-      ))}
-    </TableBody>
-  </Table>
-) : (
-  <Typography variant="body2" color="text.disabled">No jobs to display</Typography>
-)}
