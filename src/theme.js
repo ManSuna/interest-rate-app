@@ -1,28 +1,40 @@
+<TableBody>
+  {gridRows.map((row) => {
+    const ok = row.resultCode === 0;
 
-Sunil Gurung <linusgnurug@gmail.com>
-12:55 AM (0 minutes ago)
-to me
+    return (
+      <TableRow key={row.id} hover>
+        <TableCell>{row.businessDate ?? '—'}</TableCell>
 
-<DataGrid
-  rows={gridRows}
-  columns={columns}
-  autoHeight
-  disableColumnMenu
-  disableRowSelectionOnClick
-  density="compact"
-  rowHeight={32} // optional, for extra compactness
-  pageSizeOptions={[15, 30]}
-  initialState={{
-    pagination: { paginationModel: { pageSize: 15 } }
-  }}
-  sx={{
-    '& .MuiDataGrid-cell': {
-      py: 0.5, // reduce vertical padding in cells
-    },
-    '& .MuiDataGrid-columnHeaders': {
-      minHeight: 36,
-      maxHeight: 36,
-      lineHeight: '36px',
-    },
-  }}
-/>
+        <TableCell>
+          <Chip
+            size="small"
+            label={ok ? 'Success' : 'Failed'}
+            color={ok ? 'success' : 'error'}
+            variant={ok ? 'outlined' : 'filled'}
+          />
+        </TableCell>
+
+        <TableCell align="right">
+          {row.rtpTotalInterest?.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) ?? '—'}
+        </TableCell>
+
+        <TableCell align="right" sx={{ width: 96 }}>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => {
+              setSelectedRow(row._raw);   // the full object you stored
+              setOpen(true);
+            }}
+          >
+            More
+          </Button>
+        </TableCell>
+      </TableRow>
+    );
+  })}
+</TableBody>
