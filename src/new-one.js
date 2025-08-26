@@ -78,3 +78,45 @@ export default function Login() {
 
   // ...
 }
+// MetadataProvider.js (hooks OK here)
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { META_KEY, BASE_KEY, readMeta, writeMeta, clearMeta } from './metadata';
+
+const Ctx = createContext(null);
+export const useMetadata = () => useContext(Ctx);
+
+export function MetadataProvider({ children }) {
+  const [metadata, setMetadata] = useState(readMeta());
+  const [loading, setLoading] = useState(!readMeta());
+
+  const refetch = useCallback(async () => {
+    const base = localStorage.getItem(BASE_KEY);
+    if (!base) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${base}/metadata`);
+      const data = await res.json();
+      writeMeta(data);
+      setMetadata(data);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (metadata == null) refetch();           // load once
+  }, [metadata, refetch]);
+
+  // cross-tab sync
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === META_KEY) setMetadata(readMeta());
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  const clear = () => { clearMeta(); setMetadata(null); };
+
+  return <Ctx.Provider value={{ metadata, loading, refetch, clear }}>{children}</Ctx.Provider>;
+}
