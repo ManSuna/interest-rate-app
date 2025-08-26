@@ -1,32 +1,64 @@
-// utils.js
+// DailySectionGrouped.jsx
+import * as React from "react";
+import { Accordion, AccordionSummary, AccordionDetails, Box, Typography } from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { DataGrid } from "@mui/x-data-grid";
 import dayjs from "dayjs";
+import { mergeDailyAndLedger, groupByBusinessDate } from "./utils";
 
-export function mergeDailyAndLedger(card, fallbackDate) {
-  const dailyPart = (card.dailyJobs ?? []).map((j, i) => ({
-    id: `d-${i}-${j.id ?? i}`,
-    type: "Daily",
-    businessDate: j.businessDate ?? fallbackDate ?? null,
-    ...j,
-  }));
-  const ledgerPart = (card.ledgerJobs ?? []).map((j, i) => ({
-    id: `l-${i}-${j.id ?? i}`,
-    type: "Ledger",
-    businessDate: j.businessDate ?? fallbackDate ?? null,
-    ...j,
-  }));
+const columns = [
+  { field: "type", headerName: "Type", width: 110 },
+  {
+    field: "businessDate",
+    headerName: "Business Date",
+    flex: 1,
+    valueFormatter: (p) => (p.value ? dayjs(p.value).format("YYYY-MM-DD") : ""),
+    sortComparator: (v1, v2) => dayjs(v1).valueOf() - dayjs(v2).valueOf(),
+  },
+  { field: "message", headerName: "Message", flex: 2 },
+  { field: "processedAccountsCount", headerName: "Processed Accounts", width: 170 },
+  { field: "resultCode", headerName: "Result Code", width: 130 },
+  { field: "selector", headerName: "Selector", width: 130 },
+  { field: "updatedTs", headerName: "Updated At", flex: 1 },
+];
 
-  return [...dailyPart, ...ledgerPart].filter(r => !!r.businessDate);
-}
+export default function DailySectionGrouped({ card, metaBusinessDate }) {
+  const merged = React.useMemo(
+    () => mergeDailyAndLedger(card, metaBusinessDate),
+    [card, metaBusinessDate]
+  );
 
-export function groupByBusinessDate(rows) {
-  const map = new Map();
-  rows.forEach(r => {
-    const key = dayjs(r.businessDate).format("YYYY-MM-DD");
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(r);
-  });
+  const groups = React.useMemo(() => groupByBusinessDate(merged), [merged]);
 
-  // newest date first
-  return [...map.entries()]
-    .sort((a, b) => dayjs(b[0]).valueOf() - dayjs(a[0]).valueOf());
+  if (groups.length === 0) return null;
+
+  return (
+    <Box>
+      {groups.map(([dateKey, rows], idx) => (
+        <Accordion key={dateKey} defaultExpanded={idx === 0}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="subtitle1" fontWeight={700}>
+              Business Date: {dateKey} &nbsp;
+            </Typography>
+            <Typography variant="body2" sx={{ ml: 1, color: "text.secondary" }}>
+              ({rows.length} jobs)
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Box sx={{ height: 360, width: "100%" }}>
+              <DataGrid
+                rows={rows}
+                columns={columns}
+                disableRowSelectionOnClick
+                initialState={{
+                  pagination: { paginationModel: { pageSize: 10 } },
+                }}
+                pageSizeOptions={[5, 10, 25]}
+              />
+            </Box>
+          </AccordionDetails>
+        </Accordion>
+      ))}
+    </Box>
+  );
 }
