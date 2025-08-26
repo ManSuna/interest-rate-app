@@ -1,32 +1,59 @@
+import React, { useMemo } from "react";
+import { Accordion, AccordionSummary, AccordionDetails, Box, Typography } from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { DataGrid } from "@mui/x-data-grid";
 import dayjs from "dayjs";
+import { mergeDailyAndLedger, groupByBusinessDate } from "./utils";
 
-export function mergeDailyAndLedger(card) {
-  const asRow = (j, i, type) => ({
-    id: `${type}-${i}-${j.id ?? i}`,
-    type,
-    businessDate: j.businessDate ?? null,
-    ...j,
-  });
+const columns = [
+  { field: "type", headerName: "Type", width: 110 },
+  {
+    field: "businessDate",
+    headerName: "Business Date",
+    flex: 1,
+    valueFormatter: (p) => (p.value ? dayjs(p.value).format("YYYY-MM-DD") : ""),
+    sortComparator: (v1, v2) => dayjs(v1).valueOf() - dayjs(v2).valueOf(),
+  },
+  { field: "message", headerName: "Message", flex: 2 },
+  { field: "processedAccountsCount", headerName: "Processed Accounts", width: 170 },
+  { field: "resultCode", headerName: "Result Code", width: 130 },
+  { field: "selector", headerName: "Selector", width: 130 },
+  { field: "updatedTs", headerName: "Updated At", flex: 1 },
+];
 
-  const daily  = (card?.dailyJobs  ?? []).map((j, i) => asRow(j, i, "Daily"));
-  const ledger = (card?.ledgerJobs ?? []).map((j, i) => asRow(j, i, "Ledger"));
+export default function DailySectionGrouped({ card }) {
+  const merged = useMemo(() => mergeDailyAndLedger(card), [card]);
+  const groups = useMemo(() => groupByBusinessDate(merged), [merged]);
 
-  // keep rows even if businessDate is null; we’ll group them under “Unknown”
-  return [...daily, ...ledger];
-}
+  if (!groups.length) return null;
 
-export function groupByBusinessDate(rows) {
-  const map = new Map();
-  rows.forEach(r => {
-    const key = r.businessDate ? dayjs(r.businessDate).format("YYYY-MM-DD") : "Unknown";
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(r);
-  });
-
-  // put real dates first (newest → oldest), then “Unknown”
-  return [...map.entries()].sort((a, b) => {
-    if (a[0] === "Unknown") return 1;
-    if (b[0] === "Unknown") return -1;
-    return dayjs(b[0]).valueOf() - dayjs(a[0]).valueOf();
-  });
+  return (
+    <Box>
+      {groups.map(([dateKey, rows], idx) => (
+        <Accordion key={dateKey} defaultExpanded={idx === 0}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="subtitle1" fontWeight={700}>
+              Business Date: {dateKey}
+            </Typography>
+            <Typography variant="body2" sx={{ ml: 1, color: "text.secondary" }}>
+              ({rows.length} jobs)
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Box sx={{ height: 360, width: "100%" }}>
+              <DataGrid
+                rows={rows}
+                columns={columns}
+                disableRowSelectionOnClick
+                initialState={{
+                  pagination: { paginationModel: { pageSize: 10 } },
+                }}
+                pageSizeOptions={[5, 10, 25]}
+              />
+            </Box>
+          </AccordionDetails>
+        </Accordion>
+      ))}
+    </Box>
+  );
 }
