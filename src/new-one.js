@@ -1,91 +1,59 @@
-import React, { useMemo } from "react";
-import {
-  Accordion, AccordionSummary, AccordionDetails,
-  Box, Typography, Table, TableHead, TableBody,
-  TableRow, TableCell, TableContainer, Paper, Tooltip
-} from "@mui/material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import dayjs from "dayjs";
-import { mergeDailyAndLedger, groupByBusinessDate } from "./utils";
+const cellSx = { py: 0.5, px: 1, fontSize: 12 };        // table cells
+const detailsSx = { py: 0.5, px: 1 };                   // accordion body
+const summarySx = {
+  minHeight: 34,                                        // header height
+  '& .MuiAccordionSummary-content': { my: 0, py: 0.25 },
+};
 
-export default function DailySectionGroupedTable({ card }) {
-  const merged = useMemo(() => mergeDailyAndLedger(card), [card]);
-  const groups = useMemo(() => groupByBusinessDate(merged), [merged]);
-  if (!groups.length) return null;
+<Accordion defaultExpanded disableGutters square>
+  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={summarySx}>
+    <Typography variant="subtitle2" fontWeight={700} sx={{ fontSize: 12 }}>
+      Business Date: {dateKey}
+    </Typography>
+    <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
+      ({rows.length} jobs)
+    </Typography>
+  </AccordionSummary>
 
-  // shared compact cell style
-  const cellSx = { py: 0.5, px: 1 }; // tighter padding
-
-  return (
-    <Box>
-      {groups.map(([dateKey, rows]) => (
-        <Accordion key={dateKey} defaultExpanded={true}> {/* open by default */}
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="subtitle2" fontWeight={700}>
-              Business Date: {dateKey}
-            </Typography>
-            <Typography variant="caption" sx={{ ml: 1, color: "text.secondary" }}>
-              ({rows.length} jobs)
-            </Typography>
-          </AccordionSummary>
-
-          <AccordionDetails>
-            <TableContainer component={Paper}>
-              <Table
-                size="small"                                  // compact rows
-                stickyHeader                                   // optional: sticky header
-                sx={{
-                  "& th": { ...cellSx },
-                  "& td": { ...cellSx, verticalAlign: "middle" },
-                }}
-              >
-                <TableHead>
-                  <TableRow>
-                    <TableCell width={96}>Type</TableCell>
-                    <TableCell>Message</TableCell>
-                    <TableCell width={150}>Processed</TableCell>
-                    <TableCell width={120}>Result</TableCell>
-                    <TableCell width={120}>Selector</TableCell>
-                    <TableCell width={180}>Updated At</TableCell>
-                  </TableRow>
-                </TableHead>
-
-                <TableBody>
-                  {rows.map((row) => (
-                    <TableRow key={row.id} hover>
-                      <TableCell>{row.type}</TableCell>
-
-                      {/* compact with ellipsis + tooltip */}
-                      <TableCell sx={{ maxWidth: 360 }}>
-                        <Tooltip title={row.message || ""} placement="top" arrow>
-                          <Box sx={{
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}>
-                            {row.message}
-                          </Box>
-                        </Tooltip>
-                      </TableCell>
-
-                      <TableCell align="right">
-                        {row.processedAccountsCount ?? ""}
-                      </TableCell>
-                      <TableCell>{row.resultCode ?? ""}</TableCell>
-                      <TableCell>{row.selector ?? ""}</TableCell>
-                      <TableCell>
-                        {row.updatedTs
-                          ? dayjs(row.updatedTs).format("YYYY-MM-DD HH:mm")
-                          : ""}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </AccordionDetails>
-        </Accordion>
-      ))}
-    </Box>
-  );
-}
+  <AccordionDetails sx={detailsSx}>  {/* 👈 compact body */}
+    <TableContainer
+      component={Paper}
+      variant="outlined"
+      sx={{ boxShadow: 'none' }}      // lean look
+    >
+      <Table
+        size="small"
+        stickyHeader
+        sx={{
+          '& th': cellSx,
+          '& td': { ...cellSx, verticalAlign: 'middle' },
+        }}
+      >
+        <TableHead>
+          <TableRow>
+            <TableCell width={90}>Type</TableCell>
+            <TableCell>Message</TableCell>
+            <TableCell width={120} align="right">Processed</TableCell>
+            <TableCell width={100}>Result</TableCell>
+            <TableCell width={120}>Selector</TableCell>
+            <TableCell width={160}>Updated At</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.filter(Boolean).map((row, idx) => (
+            <TableRow key={row.id ?? `${dateKey}-${idx}`} hover>
+              <TableCell>{row.type ?? ''}</TableCell>
+              <TableCell sx={{ maxWidth: 320, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                {row.message ?? ''}
+              </TableCell>
+              <TableCell align="right">{row.processedAccountsCount ?? ''}</TableCell>
+              <TableCell>{row.resultCode ?? ''}</TableCell>
+              <TableCell>{row.selector ?? ''}</TableCell>
+              <TableCell>{row.updatedTs ?? ''}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  </AccordionDetails>
+</Accordion>
