@@ -1,79 +1,53 @@
-// AuthProvider.js
-import React, { createContext, useContext, useCallback, useEffect, useState } from "react";
+import React, { createContext, useState, useEffect, useContext } from "react";
 
-const METADATA_KEY = "metaData";
-const BASE_KEY = "backEndBaseURL";
+const AuthContext = createContext();
 
-const AuthCtx = createContext({
-  user: null,
-  login: async () => {},
-  logout: () => {},
-  error: null,
-  setError: () => {},
-  metadata: null,
-  refetchMetadata: async () => {},
-  clearMetadata: () => {},
-  metadataLoading: false,
-});
-
-const getMetadata = () => {
-  const raw = localStorage.getItem(METADATA_KEY);
-  return raw ? JSON.parse(raw) : null;
-};
-
-export function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [error, setError] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem("token") || null);
+  const [metadata, setMetadata] = useState(
+    JSON.parse(localStorage.getItem("metadata")) || null
+  );
 
-  const [metadata, setMetadata] = useState(getMetadata());
-  const [metadataLoading, setMetadataLoading] = useState(false);
-
-  const clearMetadata = useCallback(() => {
-    localStorage.removeItem(METADATA_KEY);
-    setMetadata(null);
-  }, []);
-
-  const refetchMetadata = useCallback(async () => {
-    const base = localStorage.getItem(BASE_KEY);
-    if (!base) return;
-    setMetadataLoading(true);
-    try {
-      const res = await fetch(`${base}/metadata`, { headers: { /* add auth header if needed */ } });
-      const data = await res.json();
-      localStorage.setItem(METADATA_KEY, JSON.stringify(data));
-      setMetadata(data);
-    } finally {
-      setMetadataLoading(false);
-    }
-  }, []);
-
-  // cross-tab sync
+  // Load metadata once on app startup
   useEffect(() => {
-    const onStorage = (e) => {
-      if (e.key === METADATA_KEY) setMetadata(getMetadata());
+    const fetchMetadata = async () => {
+      try {
+        const response = await fetch("/services/metadata");
+        if (response.ok) {
+          const data = await response.json();
+          setMetadata(data);
+          localStorage.setItem("metadata", JSON.stringify(data));
+        }
+      } catch (err) {
+        console.error("Failed to load metadata", err);
+      }
     };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
 
-  const login = async (username, password) => {
-    // ... your existing login logic that sets token/user
-    // after successful login:
-    await refetchMetadata();
-    return { success: true };
+    if (!metadata) {
+      fetchMetadata();
+    }
+  }, [metadata]);
+
+  const login = (userData, token) => {
+    setUser(userData);
+    setToken(token);
+    localStorage.setItem("token", token);
   };
 
   const logout = () => {
-    // ... your existing logout logic (clear token, user, etc.)
-    clearMetadata();
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem("token");
+    // 🚨 if you want metadata to stay available on landing page, DON'T remove it
+    // localStorage.removeItem("metadata"); <-- remove only if you want fresh reload every time
   };
 
-  const value = {
-    user, login, logout, error, setError,
-    metadata, refetchMetadata, clearMetadata, metadataLoading,
-  };
+  return (
+    <AuthContext.Provider value={{ user, token, login, logout, metadata }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
 
-  return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
-}
-
-export const useAuthenticationContext = () => useContext(AuthCtx);
+export const useAuth = () => useContext(AuthContext);
