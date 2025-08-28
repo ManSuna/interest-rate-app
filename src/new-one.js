@@ -1,21 +1,36 @@
-const formatRate = (v) => {
-  if (v === null || v === undefined || v === "") return "";
+<Field name="interestRate">
+  {({ field, form }) => (
+    <TextField
+      {...field}
+      label="Interest Rate"
+      type="text"              // <- not "number" to keep 1.20
+      inputMode="decimal"
+      value={field.value ?? ""} 
+      onBlur={(e) => {
+        const formatted = formatRate(e.target.value);
+        form.setFieldValue(field.name, formatted, false); // <- update Formik state
+      }}
+    />
+  )}
+</Field>
 
-  let str = v.toString();
 
-  // If no decimal point, add .00
-  if (!str.includes(".")) {
-    return str + ".00";
-  }
+// from your fetch:
+setFieldValue('interestRate', formatRate(data.rate), false);
 
-  const parts = str.split(".");
-  const decimals = parts[1] || "";
+// when clearing:
+setFieldValue('interestRate', '', false);
 
-  if (decimals.length === 0) {
-    return str + "00";   // "1." -> "1.00"
-  } else if (decimals.length === 1) {
-    return str + "0";    // "1.2" -> "1.20"
-  } else {
-    return str;          // "1.1234" -> "1.1234"
-  }
-};
+
+interestRate: Yup.string()
+  .required('Interest Rate is required')
+  .matches(/^\d+(\.\d+)?$/, 'Enter a valid decimal');
+
+
+onSubmit={(values) => {
+  const payload = {
+    ...values,
+    interestRate: values.interestRate === "" ? null : Number(values.interestRate)
+  };
+  // send payload
+});
