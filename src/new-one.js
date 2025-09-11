@@ -1,3 +1,5 @@
+import CircularProgress from "@mui/material/CircularProgress";
+
 <Chip
   size="small"
   label={
@@ -13,5 +15,10 @@
       : row.resultCode === 0
       ? "success"
       : "error"
+  }
+  icon={
+    row.resultCode === -1 ? (
+      <CircularProgress size={14} />
+    ) : undefined
   }
 />
