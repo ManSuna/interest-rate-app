@@ -1,15 +1,31 @@
-import axios from 'axios';
+@Autowired
+private JdbcTemplate jdbcTemplate;
 
-const axiosClient = axios.create({
-  baseURL: 'http://localhost:5000/api', // Your backend URL
+public void process(Timestamp from, Timestamp toExclusive) {
+
+jdbcTemplate.setFetchSize(5000);
+
+jdbcTemplate.query("""
+SELECT t.INSTRUCTING_ACCOUNT_REF AS ACCOUNT_REF
+FROM IPS_DW.T_TRANSACTION t
+WHERE t.SWITCH_COMPLETED_TMSTMP >= ?
+AND t.SWITCH_COMPLETED_TMSTMP < ?
+
+UNION ALL
+
+SELECT t.INSTRUCTED_ACCOUNT_REF AS ACCOUNT_REF
+FROM IPS_DW.T_TRANSACTION t
+WHERE t.SWITCH_COMPLETED_TMSTMP >= ?
+AND t.SWITCH_COMPLETED_TMSTMP < ?
+""",
+ps -> {
+ps.setTimestamp(1, from);
+ps.setTimestamp(2, toExclusive);
+ps.setTimestamp(3, from);
+ps.setTimestamp(4, toExclusive);
+},
+rs -> {
+String accountRef = rs.getString("ACCOUNT_REF");
+// encrypt + batch insert
 });
-
-axiosClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('jwt_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-export default axiosClient;
+}
