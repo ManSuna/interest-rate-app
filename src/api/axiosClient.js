@@ -1,3 +1,5 @@
+final String mergeSql = """
+
 MERGE INTO IPS_DW.T_ENC_ACCOUNT tgt
 USING (
 SELECT
@@ -11,3 +13,12 @@ UPDATE SET tgt.ENCRYPTED_ACCOUNT_REF = src.ENCRYPTED_ACCOUNT_REF
 WHEN NOT MATCHED THEN
 INSERT (ACCOUNT_REF, ENCRYPTED_ACCOUNT_REF)
 VALUES (src.ACCOUNT_REF, src.ENCRYPTED_ACCOUNT_REF)
+""";
+catch (Exception e) {
+Throwable t = e;
+while (t != null) {
+t.printStackTrace();
+t = (t instanceof java.sql.BatchUpdateException b) ? b.getNextException() : t.getCause();
+}
+throw e;
+}
