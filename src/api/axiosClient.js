@@ -1,24 +1,26 @@
-final String mergeSql = """
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 
-MERGE INTO IPS_DW.T_ENC_ACCOUNT tgt
-USING (
-SELECT
-? AS ACCOUNT_REF,
-? AS ENCRYPTED_ACCOUNT_REF
-FROM SYSIBM.SYSDUMMY1
-) src
-ON tgt.ACCOUNT_REF = src.ACCOUNT_REF
-WHEN MATCHED THEN
-UPDATE SET tgt.ENCRYPTED_ACCOUNT_REF = src.ENCRYPTED_ACCOUNT_REF
-WHEN NOT MATCHED THEN
-INSERT (ACCOUNT_REF, ENCRYPTED_ACCOUNT_REF)
-VALUES (src.ACCOUNT_REF, src.ENCRYPTED_ACCOUNT_REF)
-""";
-catch (Exception e) {
-Throwable t = e;
-while (t != null) {
-t.printStackTrace();
-t = (t instanceof java.sql.BatchUpdateException b) ? b.getNextException() : t.getCause();
+public int processRangeByDay(...) {
+AtomicLong totalProcessed = new AtomicLong(0);
+
+ScheduledExecutorService progress = Executors.newSingleThreadScheduledExecutor();
+progress.scheduleAtFixedRate(() -> {
+long count = totalProcessed.get();
+log.info("Progress: totalProcessed={}", count);
+}, 2, 2, TimeUnit.SECONDS); // start after 2s, then every 2s
+
+try {
+// your main processing loop
+while (/* loop days */) {
+int processedThisDay = processSingleDay(...); // whatever returns int
+totalProcessed.addAndGet(processedThisDay);
+
+// current = current.plusDays(1);
 }
-throw e;
+
+return (int) totalProcessed.get();
+} finally {
+progress.shutdownNow(); // stop reporter thread
+}
 }
