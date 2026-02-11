@@ -1,99 +1,45 @@
-@Transactional
-public int processRangeByDay(Timestamp fromInclusive,
-Timestamp toInclusive) {
+package org.tch.fraud.accountproxy.repository;
 
-int totalProcessed = 0;
+import org.tch.fraud.accountproxy.service.RTPDataLoadService.EncryptedAccountsRow;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Repository;
 
-LocalDate startDate = fromInclusive.toInstant()
-.atZone(ZoneId.systemDefault())
-.toLocalDate();
+import java.util.List;
 
-LocalDate endDate = toInclusive.toInstant()
-.atZone(ZoneId.systemDefault())
-.toLocalDate();
+@Repository
+public class EncryptedAccountsJdbcRepository {
 
-LocalDate current = startDate;
+private final JdbcTemplate jdbcTemplate;
 
-while (!current.isAfter(endDate)) {
-
-Timestamp dayStart = Timestamp.valueOf(current.atStartOfDay());
-Timestamp nextDayStart = Timestamp.valueOf(current.plusDays(1).atStartOfDay());
-
-totalProcessed += processSingleDay(dayStart, nextDayStart);
-
-current = current.plusDays(1);
+public EncryptedAccountsJdbcRepository(JdbcTemplate jdbcTemplate) {
+this.jdbcTemplate = jdbcTemplate;
 }
 
-return totalProcessed;
+/**
+* DB2 MERGE: ensures ACCOUNT_REF remains unique.
+* Requires a UNIQUE index on T_ENC_ACCOUNT(ACCOUNT_REF) for best protection.
+*/
+public int[] batchMerge(List<EncryptedAccountsRow> rows) {
+
+final String mergeSql = """
+MERGE INTO IPS_DW.T_ENC_ACCOUNT tgt
+USING (VALUES (?, ?)) AS src (ACCOUNT_REF, ENCRYPTED_ACCOUNT_REF)
+ON tgt.ACCOUNT_REF = src.ACCOUNT_REF
+WHEN MATCHED THEN
+UPDATE SET tgt.ENCRYPTED_ACCOUNT_REF = src.ENCRYPTED_ACCOUNT_REF
+WHEN NOT MATCHED THEN
+INSERT (ACCOUNT_REF, ENCRYPTED_ACCOUNT_REF)
+VALUES (src.ACCOUNT_REF, src.ENCRYPTED_ACCOUNT_REF)
+""";
+
+return jdbcTemplate.batchUpdate(
+mergeSql,
+rows,
+rows.size(),
+(ps, row) -> {
+ps.setString(1, row.accountRef());
+ps.setString(2, row.encryptedAccountRef());
 }
-
-
-
-
-
-public int processSingleDay(Timestamp fromInclusive,
-Timestamp toExclusive) {
-
-final int fetchSize = 5000;
-final int batchSize = 1000;
-
-jdbcTemplate.setFetchSize(fetchSize);
-
-List<EncryptedAccountsRow> buffer = new ArrayList<>(batchSize);
-int[] total = new int[]{0};
-
-jdbcTemplate.query(
-"""
-SELECT ACCOUNT_REF
-FROM (
-SELECT t.INSTRUCTING_ACCOUNT_REF AS ACCOUNT_REF
-FROM IPS_DW.T_TRANSACTION t
-WHERE t.SWITCH_COMPLETED_TMSTMP >= ?
-AND t.SWITCH_COMPLETED_TMSTMP < ?
-
-UNION ALL
-
-SELECT t.INSTRUCTED_ACCOUNT_REF AS ACCOUNT_REF
-FROM IPS_DW.T_TRANSACTION t
-WHERE t.SWITCH_COMPLETED_TMSTMP >= ?
-AND t.SWITCH_COMPLETED_TMSTMP < ?
-) x
-WHERE x.ACCOUNT_REF IS NOT NULL
-""",
-ps -> {
-ps.setTimestamp(1, fromInclusive);
-ps.setTimestamp(2, toExclusive);
-ps.setTimestamp(3, fromInclusive);
-ps.setTimestamp(4, toExclusive);
-},
-rs -> {
-
-String accountRef = rs.getString("ACCOUNT_REF");
-if (accountRef == null) return;
-
-String encrypted = encDecWithAES.encrypt(accountRef);
-
-buffer.add(new EncryptedAccountsRow(accountRef, encrypted));
-
-if (buffer.size() >= batchSize) {
-encryptedRepo.batchInsert(buffer);
-total[0] += buffer.size();
-buffer.clear();
+);
 }
-});
-
-if (!buffer.isEmpty()) {
-encryptedRepo.batchInsert(buffer);
-total[0] += buffer.size();
 }
-
-return total[0];
-}
-
-
-
-
-
-
-
-
