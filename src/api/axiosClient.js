@@ -1,132 +1,238 @@
- Application Framework & Runtime
+he RTP–Fedwire interface application is designed to meet high availability and resiliency requirements in the Production environment hosted on Dell PowerFlex infrastructure.
+
+
+
+High Availability Design
+The application is deployed in a multi-node clustered environment across geographically separated data centers (North Carolina and Pennsylvania).
+
+Application instances are deployed in active-active mode behind load balancing.
+
+In case of node failure, traffic is automatically routed to healthy instances.
+
+Stateless service design ensures minimal session dependency and seamless failover.
+
+
+
+Messaging Resiliency (Fedwire / MQ)
+IBM MQ is configured with persistent messaging to prevent message loss.
+
+Queue managers are configured for high availability and failover.
+
+Messages are processed using transactional boundaries to ensure:
+
+Exactly-once processing
+
+Rollback capability on failure
+
+Retry mechanisms and backoff strategies are implemented for transient failures.
+
+
+
+Database Resiliency
+Database connections use connection pooling with failover support.
+
+Transactions are ACID compliant.
+
+Sensitive data encryption is handled prior to persistence.
+
+
+
+Infrastructure Resiliency
+Dell PowerFlex provides distributed storage redundancy.
+
+Network segmentation and IDS/IPS protections are implemented.
+
+Dual-site architecture ensures disaster recovery capability.
+
+
+
+Monitoring and Alerting
+Application health checks are exposed via Spring Boot Actuator.
+
+Logging is centralized.
+
+Automated alerts are configured for:
+
+Application downtime
+
+Queue buildup
+
+Transaction failures
+
+
+
+This design ensures minimal downtime and compliance with enterprise uptime requirements.
+
+10.13 Reusability
+
+
+The solution maximizes reuse of existing enterprise components and frameworks.
+
+
+
+Reused Components
+Enterprise Spring Boot base framework
+
+Standardized logging framework
+
+Existing MQ integration libraries
+
+Shared encryption utilities
+
+Corporate CI/CD pipeline
+
+Standardized environment configuration model (DEV, QE, BT, PROD)
+
+
+
+Modified Components
+Existing messaging layer extended to support Fedwire-specific formats.
+
+Data access layer customized for transaction-based encryption processing.
+
+
+
+Newly Designed Reusable Components
+Encryption service module (reusable across applications handling sensitive data)
+
+Transaction processing abstraction layer
+
+MQ configuration wrapper
+
+Date-range processing utilities
+
+
+
+The design ensures modularity and portability across other financial integration projects.
+
+6 Design Decisions
+
+
+The following key design decisions were made:
+
+
+
+1. Spring Boot Framework
+
+
+Chosen for:
+
+Dependency injection
+
+Configuration management
+
+Production-grade stability
+
+REST and integration support
+
+
+
+2. Java 17
+
+
+Selected as enterprise-approved LTS version for:
+
+Performance improvements
+
+Long-term support
+
+Enhanced security features
+
+
+
+3. JDBC/JdbcTemplate
+
+
+Chosen over full ORM to:
+
+Optimize performance
+
+Handle large-volume transaction processing
+
+Provide fine-grained SQL control
+
+
+
+4. Message-Driven Architecture
+
+
+Selected to:
+
+Decouple processing layers
+
+Improve reliability
+
+Support asynchronous transaction handling
+
+
+
+5. Environment-Based Configuration
+
+
+Externalized configuration ensures:
+
+No hardcoded credentials
+
+Secure profile-based deployment
+
+Easier promotion across DEV → QE → BT → PROD
+
+
+
+6. Encryption at Application Layer
+
+
+Sensitive data is encrypted before database persistence to:
+
+Meet compliance requirements
+
+Prevent plaintext exposure
+
+Maintain data protection in transit and at rest
+
+7 Tools and Automation
+
+
+7.1 Application Framework & Runtime
 Java (JDK 17+) – Primary programming language.
 
-Spring Boot Framework – Application framework providing dependency injection, configuration management, transaction management, and REST support.
+Spring Boot – Dependency injection, configuration management, transaction management.
 
-Spring JDBC / NamedParameterJdbcTemplate – Data access abstraction layer.
+Spring JDBC / JdbcTemplate – Data access abstraction layer.
 
 Maven – Build lifecycle and dependency management.
 
-Environment-based configuration (Spring Profiles) – Externalized configuration per environment (DEV, QE, BT, PROD).
+Environment-based configuration – Externalized config per environment (DEV, QE, BT, PROD).
 
 
 
-The application follows a layered architecture:
+7.2 Integration Layer (Fedwire / Messaging)
+IBM MQ – Enterprise messaging platform for Fedwire interactions.
 
-DAO Layer (database access)
+GitHub – Version control and branch management.
 
-Service Layer (business logic)
+Mandatory pull request workflow
 
-Integration Layer (Fedwire / messaging interactions)
+Peer review process
 
-7.2 Source Control & Code Governance
-Git (Azure DevOps Repositories) – Version control and branch management.
+Release-aligned branching strategy
 
-Pull Request workflow with mandatory peer review.
+CI/CD Pipeline – Automated build and deployment.
 
-Branching strategy aligned to release cycles.
+Static Code Analysis (SonarQube) – Code quality and vulnerability scanning.
 
-Commit traceability to work items (change tracking & auditability).
+JUnit / Mockito – Automated unit testing.
 
-7.3 Static Analysis & Code Quality
-SonarQube – Automated static code analysis.
+Secure keystore management – JKS-based certificate handling.
 
-Code smell detection
+If you’d like, I can now:
 
-Security vulnerability scanning (SQL injection, etc.)
+Make this more executive-level
 
-Maintainability and complexity metrics
+Make it more technical
 
-Quality Gate enforcement prior to merge
+Add compliance language (FFIEC, SOC2, etc.)
 
+Add FedNow references
 
-
-Quality gates are enforced within CI pipeline to prevent code promotion if thresholds are not met.
-
-7.4 Build & Continuous Integration
-Azure DevOps CI Pipelines
-
-Automated build triggered on commit/PR.
-
-Maven lifecycle execution (clean, compile, test, package).
-
-Unit test execution with coverage reporting.
-
-Sonar analysis integrated into pipeline.
-
-Artifact generation and version tagging.
-
-
-
-Build artifacts are immutable and stored in the enterprise artifact repository.
-
-7.5 Testing Automation Framework
-
-
-Unit Testing
-JUnit 5
-
-Mockito for dependency isolation.
-
-Test coverage validation as part of CI.
-
-
-
-Integration Testing
-Spring Test framework for context loading.
-
-Database interaction validation.
-
-End-to-end service flow validation within application boundary.
-
-
-
-QE Environment Validation
-In-house Fedwire Simulator Application
-
-Simulates Fedwire Funds Service (FFS) behavior.
-
-Validates top-up/drawdown flows.
-
-Simulates success, failure, timeout, and retry scenarios.
-
-Enables deterministic validation without live external dependency.
-
-7.6 Deployment Automation
-Azure DevOps CD Pipelines
-
-Controlled promotion across environments (DEV → QE → BT → PROD).
-
-Environment-specific configuration injection.
-
-Deployment approvals and gated releases.
-
-Rollback capability via artifact versioning.
-
-
-
-Infrastructure changes follow change management governance procedures.
-
-7.7 Observability & Operational Support
-Structured application logging.
-
-Error logging and audit tracking for transaction events.
-
-Monitoring integration with enterprise NOC tooling.
-
-Deployment sign-offs captured electronically via SharePoint Workflow Approvals.
-
-Architectural Governance Principles
-
-
-The toolchain supports:
-
-Security-by-design (static scanning & SQL injection prevention)
-
-Audit traceability (Git + pipeline history)
-
-Repeatable deployments
-
-Controlled environment promotion
-
-Automated quality enforcement
+Or tailor it specifically to your clearing house environment
