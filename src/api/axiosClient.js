@@ -1,26 +1,43 @@
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicLong;
+Integration Testing
 
-public int processRangeByDay(...) {
-AtomicLong totalProcessed = new AtomicLong(0);
 
-ScheduledExecutorService progress = Executors.newSingleThreadScheduledExecutor();
-progress.scheduleAtFixedRate(() -> {
-long count = totalProcessed.get();
-log.info("Progress: totalProcessed={}", count);
-}, 2, 2, TimeUnit.SECONDS); // start after 2s, then every 2s
+Integration testing validates interactions between system components and dependent services, including database operations and messaging flows.
 
-try {
-// your main processing loop
-while (/* loop days */) {
-int processedThisDay = processSingleDay(...); // whatever returns int
-totalProcessed.addAndGet(processedThisDay);
+Database interactions are tested to ensure correct SQL execution and data integrity.
 
-// current = current.plusDays(1);
-}
+Error handling and edge cases are validated.
 
-return (int) totalProcessed.get();
-} finally {
-progress.shutdownNow(); // stop reporter thread
-}
-}
+End-to-end processing flows are verified.
+
+
+
+QE Testing (Quality Engineering)
+
+
+Testing in the QE environment is performed using an in-house simulator application. The simulator mimics external system behavior, including Fedwire interactions, allowing controlled validation of:
+
+Top-up and drawdown scenarios
+
+Success and failure responses
+
+Timeout and retry scenarios
+
+Multi-site processing scenarios
+
+
+
+The simulator enables repeatable and consistent validation without dependency on live external systems.
+
+
+
+Regression Testing
+
+
+Automated regression tests are executed as part of the CI/CD pipeline to ensure new changes do not impact existing functionality.
+
+
+
+User Acceptance Testing (UAT)
+
+
+UAT will be conducted in coordination with business stakeholders to validate functional requirements and operational readiness.
