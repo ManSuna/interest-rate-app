@@ -1,238 +1,200 @@
-he RTP–Fedwire interface application is designed to meet high availability and resiliency requirements in the Production environment hosted on Dell PowerFlex infrastructure.
+5.15 Interactions with Other Systems
 
+The application interfaces with multiple internal and external enterprise systems to support Fedwire transaction processing, authentication, monitoring, and operational reporting.
 
+1. IBM MQ (Fedwire Messaging Interface)
 
-High Availability Design
-The application is deployed in a multi-node clustered environment across geographically separated data centers (North Carolina and Pennsylvania).
+Bi-directional communication via IBM MQ.
 
-Application instances are deployed in active-active mode behind load balancing.
+Persistent queues configured for guaranteed message delivery.
 
-In case of node failure, traffic is automatically routed to healthy instances.
+TLS-secured channel communication.
 
-Stateless service design ensures minimal session dependency and seamless failover.
+Transactional message processing to ensure exactly-once consumption.
 
+Retry and dead-letter queue handling for failed transactions.
 
+2. LDAP / Enterprise Authentication
 
-Messaging Resiliency (Fedwire / MQ)
-IBM MQ is configured with persistent messaging to prevent message loss.
+User authentication is delegated to corporate LDAP.
 
-Queue managers are configured for high availability and failover.
+Role mapping is performed post-authentication.
 
-Messages are processed using transactional boundaries to ensure:
+No credentials are stored locally within the application.
 
-Exactly-once processing
+3. Database (Transactional Data Store)
 
-Rollback capability on failure
+JDBC-based connectivity.
 
-Retry mechanisms and backoff strategies are implemented for transient failures.
+Used for:
 
+Transaction persistence
 
+Audit logging
 
-Database Resiliency
-Database connections use connection pooling with failover support.
+Status tracking
 
-Transactions are ACID compliant.
+Encrypted sensitive data storage
 
-Sensitive data encryption is handled prior to persistence.
+Connection pooling with failover support.
 
+4. Logging & Monitoring Systems
 
+Centralized logging platform integration.
 
-Infrastructure Resiliency
-Dell PowerFlex provides distributed storage redundancy.
+Structured logs for:
 
-Network segmentation and IDS/IPS protections are implemented.
+Transaction lifecycle
 
-Dual-site architecture ensures disaster recovery capability.
+Security events
 
+System errors
 
+Health endpoints exposed via Spring Boot Actuator.
 
-Monitoring and Alerting
-Application health checks are exposed via Spring Boot Actuator.
+Monitoring tools track:
 
-Logging is centralized.
+Queue depth
 
-Automated alerts are configured for:
+Response times
 
-Application downtime
+Application uptime
 
-Queue buildup
+5. CI/CD and Source Control
 
-Transaction failures
+GitHub for version control.
 
+Enterprise CI/CD pipeline for:
 
+Automated builds
 
-This design ensures minimal downtime and compliance with enterprise uptime requirements.
+Code scanning
 
-10.13 Reusability
+Deployment to DEV, QE, BT, and PROD.
 
+No breaking changes to upstream systems are introduced. Integration follows existing enterprise standards.
 
-The solution maximizes reuse of existing enterprise components and frameworks.
+5.16 Open Source and Third Party Software
 
+The following open-source and third-party components are used:
 
+Component	Type	Purpose	Justification
+Java JDK 17	Open Source (Oracle/Temurin LTS)	Runtime	Enterprise-approved LTS version
+Spring Boot	Open Source	Application framework	Dependency injection, configuration, REST support
+Spring JDBC	Open Source	Data access abstraction	Lightweight SQL control
+Maven	Open Source	Build tool	Dependency management
+IBM MQ Client	Third Party	Messaging integration	Required for Fedwire connectivity
+Logback / SLF4J	Open Source	Logging framework	Structured logging support
+JUnit / Mockito	Open Source	Testing	Automated unit testing
+SonarQube	Third Party	Code quality scanning	Security and vulnerability analysis
 
-Reused Components
-Enterprise Spring Boot base framework
+All open-source components are reviewed and approved through enterprise governance and vulnerability scanning processes.
 
-Standardized logging framework
+5.17 Security
 
-Existing MQ integration libraries
+The application implements layered security controls aligned with enterprise financial standards.
 
-Shared encryption utilities
+1. Network Security
 
-Corporate CI/CD pipeline
+Segmented network zones.
 
-Standardized environment configuration model (DEV, QE, BT, PROD)
+North–South and East–West traffic monitoring.
 
+IDS/IPS protection.
 
+Firewall-controlled MQ channels.
 
-Modified Components
-Existing messaging layer extended to support Fedwire-specific formats.
+2. Transport Security
 
-Data access layer customized for transaction-based encryption processing.
+TLS encryption for:
 
+MQ connections
 
+Database connections
 
-Newly Designed Reusable Components
-Encryption service module (reusable across applications handling sensitive data)
+REST endpoints
 
-Transaction processing abstraction layer
+Keystore-based certificate management (JKS).
 
-MQ configuration wrapper
+3. Data Protection
 
-Date-range processing utilities
+Sensitive data encrypted before persistence.
 
+Encryption keys stored securely in keystore.
 
+No plaintext storage of credentials or sensitive identifiers.
 
-The design ensures modularity and portability across other financial integration projects.
+4. Authentication & Authorization
 
-6 Design Decisions
+LDAP-based authentication.
 
+Role-based access control (RBAC).
 
-The following key design decisions were made:
+Principle of least privilege enforced.
 
+5. Application-Level Security
 
+Input validation.
 
-1. Spring Boot Framework
+SQL injection prevention via parameterized queries.
 
+Secure configuration management.
 
-Chosen for:
+Externalized secrets (not hardcoded).
 
-Dependency injection
+6. Audit & Logging
 
-Configuration management
+Security events logged.
 
-Production-grade stability
+Audit trail maintained for transaction modifications.
 
-REST and integration support
+Log integrity maintained via centralized log management.
 
+10.11.1 Access Levels and Roles
 
+The application implements role-based access controls aligned with enterprise identity management policies.
 
-2. Java 17
+Defined Roles
+1. System Administrator
 
+Full configuration access.
 
-Selected as enterprise-approved LTS version for:
+Manage system parameters.
 
-Performance improvements
+View audit logs.
 
-Long-term support
+Deploy configuration updates.
 
-Enhanced security features
+2. Operations User
 
+View transaction status.
 
+Reprocess failed transactions.
 
-3. JDBC/JdbcTemplate
+Generate reports.
 
+3. Read-Only Auditor
 
-Chosen over full ORM to:
+View transaction history.
 
-Optimize performance
+Access audit logs.
 
-Handle large-volume transaction processing
+No modification rights.
 
-Provide fine-grained SQL control
+4. Application Service Account
 
+MQ consumption and publishing.
 
+Database read/write access.
 
-4. Message-Driven Architecture
+No UI access.
 
+Access Control Principles
 
-Selected to:
+Least privilege enforced.
 
-Decouple processing layers
+Role mapping controlled via LDAP group membership.
 
-Improve reliability
+Periodic access reviews conducted.
 
-Support asynchronous transaction handling
-
-
-
-5. Environment-Based Configuration
-
-
-Externalized configuration ensures:
-
-No hardcoded credentials
-
-Secure profile-based deployment
-
-Easier promotion across DEV → QE → BT → PROD
-
-
-
-6. Encryption at Application Layer
-
-
-Sensitive data is encrypted before database persistence to:
-
-Meet compliance requirements
-
-Prevent plaintext exposure
-
-Maintain data protection in transit and at rest
-
-7 Tools and Automation
-
-
-7.1 Application Framework & Runtime
-Java (JDK 17+) – Primary programming language.
-
-Spring Boot – Dependency injection, configuration management, transaction management.
-
-Spring JDBC / JdbcTemplate – Data access abstraction layer.
-
-Maven – Build lifecycle and dependency management.
-
-Environment-based configuration – Externalized config per environment (DEV, QE, BT, PROD).
-
-
-
-7.2 Integration Layer (Fedwire / Messaging)
-IBM MQ – Enterprise messaging platform for Fedwire interactions.
-
-GitHub – Version control and branch management.
-
-Mandatory pull request workflow
-
-Peer review process
-
-Release-aligned branching strategy
-
-CI/CD Pipeline – Automated build and deployment.
-
-Static Code Analysis (SonarQube) – Code quality and vulnerability scanning.
-
-JUnit / Mockito – Automated unit testing.
-
-Secure keystore management – JKS-based certificate handling.
-
-If you’d like, I can now:
-
-Make this more executive-level
-
-Make it more technical
-
-Add compliance language (FFIEC, SOC2, etc.)
-
-Add FedNow references
-
-Or tailor it specifically to your clearing house environment
+No shared user accounts allowed.
