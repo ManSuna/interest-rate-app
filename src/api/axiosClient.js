@@ -1,200 +1,162 @@
-5.15 Interactions with Other Systems
+Messaging Platform – IBM MQ
 
-The application interfaces with multiple internal and external enterprise systems to support Fedwire transaction processing, authentication, monitoring, and operational reporting.
 
-1. IBM MQ (Fedwire Messaging Interface)
+The application integrates with IBM MQ as the primary messaging middleware for Fedwire communication.
 
-Bi-directional communication via IBM MQ.
 
-Persistent queues configured for guaranteed message delivery.
 
-TLS-secured channel communication.
+Key Design Characteristics
+Persistent Messaging enabled to prevent message loss.
 
-Transactional message processing to ensure exactly-once consumption.
+Transactional processing ensures exactly-once delivery semantics.
 
-Retry and dead-letter queue handling for failed transactions.
+Message acknowledgment control via commit/rollback boundaries.
 
-2. LDAP / Enterprise Authentication
+Dead Letter Queue (DLQ) configured for failed message handling.
 
-User authentication is delegated to corporate LDAP.
+Retry mechanisms implemented for transient failures.
 
-Role mapping is performed post-authentication.
+Queue depth monitoring integrated with enterprise monitoring tools.
 
-No credentials are stored locally within the application.
 
-3. Database (Transactional Data Store)
 
-JDBC-based connectivity.
+Security Controls
+TLS-secured MQ channels.
 
-Used for:
+Mutual certificate authentication.
 
-Transaction persistence
+Firewall-restricted port access.
 
-Audit logging
+MQ service accounts restricted by least privilege.
 
-Status tracking
 
-Encrypted sensitive data storage
 
-Connection pooling with failover support.
+High Availability
+MQ queue managers configured in high-availability mode.
 
-4. Logging & Monitoring Systems
+Dual data center deployment (NC and PA).
 
-Centralized logging platform integration.
+Automatic failover between nodes.
 
-Structured logs for:
 
-Transaction lifecycle
 
-Security events
+No changes to enterprise MQ standards are introduced. The design aligns with existing Fedwire messaging architecture.
 
-System errors
+5.13 Application Services
 
-Health endpoints exposed via Spring Boot Actuator.
 
-Monitoring tools track:
+The application services layer is implemented using Spring Boot and follows a layered architecture.
 
-Queue depth
 
-Response times
 
-Application uptime
+Core Service Components
 
-5. CI/CD and Source Control
 
-GitHub for version control.
+1. Fedwire Processing Service
+Consumes inbound MQ messages.
 
-Enterprise CI/CD pipeline for:
+Validates message structure.
 
-Automated builds
+Applies business validation rules.
 
-Code scanning
+Encrypts sensitive data before persistence.
 
-Deployment to DEV, QE, BT, and PROD.
+Publishes outbound responses to MQ.
 
-No breaking changes to upstream systems are introduced. Integration follows existing enterprise standards.
 
-5.16 Open Source and Third Party Software
 
-The following open-source and third-party components are used:
+2. Transaction Management Service
+Manages transactional boundaries.
 
-Component	Type	Purpose	Justification
-Java JDK 17	Open Source (Oracle/Temurin LTS)	Runtime	Enterprise-approved LTS version
-Spring Boot	Open Source	Application framework	Dependency injection, configuration, REST support
-Spring JDBC	Open Source	Data access abstraction	Lightweight SQL control
-Maven	Open Source	Build tool	Dependency management
-IBM MQ Client	Third Party	Messaging integration	Required for Fedwire connectivity
-Logback / SLF4J	Open Source	Logging framework	Structured logging support
-JUnit / Mockito	Open Source	Testing	Automated unit testing
-SonarQube	Third Party	Code quality scanning	Security and vulnerability analysis
+Ensures ACID compliance.
 
-All open-source components are reviewed and approved through enterprise governance and vulnerability scanning processes.
+Handles rollback on processing failure.
 
-5.17 Security
 
-The application implements layered security controls aligned with enterprise financial standards.
 
-1. Network Security
+3. Authentication & Authorization Service
+Integrates with LDAP.
 
-Segmented network zones.
+Maps users to roles.
 
-North–South and East–West traffic monitoring.
+Enforces RBAC controls.
 
-IDS/IPS protection.
 
-Firewall-controlled MQ channels.
 
-2. Transport Security
+4. Console API Layer
+Exposes REST endpoints for:
 
-TLS encryption for:
+Balance inquiry
 
-MQ connections
+Payment status lookup
 
-Database connections
+Reconciliation
 
-REST endpoints
+Access restricted to authenticated users.
 
-Keystore-based certificate management (JKS).
 
-3. Data Protection
 
-Sensitive data encrypted before persistence.
+Architecture Characteristics
+Stateless service design.
 
-Encryption keys stored securely in keystore.
+Externalized configuration (DEV, QE, BT, PROD).
 
-No plaintext storage of credentials or sensitive identifiers.
+Connection pooling for database access.
 
-4. Authentication & Authorization
+Exception handling framework for standardized error responses.
 
-LDAP-based authentication.
+Logging and trace correlation for transaction lifecycle tracking.
 
-Role-based access control (RBAC).
 
-Principle of least privilege enforced.
 
-5. Application-Level Security
+No cloud-native services are currently introduced; the application operates within enterprise-hosted Dell PowerFlex infrastructure.
 
-Input validation.
+5.14 Application Reports
 
-SQL injection prevention via parameterized queries.
 
-Secure configuration management.
+The TCH Fedwire Interface Console provides reporting capabilities for authorized users.
 
-Externalized secrets (not hardcoded).
 
-6. Audit & Logging
 
-Security events logged.
+Available Reports
 
-Audit trail maintained for transaction modifications.
 
-Log integrity maintained via centralized log management.
+1. Balance Inquiry Report
+Displays account balances.
 
-10.11.1 Access Levels and Roles
+Supports date-range filtering.
 
-The application implements role-based access controls aligned with enterprise identity management policies.
 
-Defined Roles
-1. System Administrator
 
-Full configuration access.
+2. Payment Report
+Lists inbound and outbound transactions.
 
-Manage system parameters.
+Includes transaction status and processing timestamps.
 
-View audit logs.
+Exportable to CSV and PDF.
 
-Deploy configuration updates.
 
-2. Operations User
 
-View transaction status.
+3. Reconciliation Report
+Compares processed transactions against expected settlement totals.
 
-Reprocess failed transactions.
+Identifies discrepancies for operational review.
 
-Generate reports.
 
-3. Read-Only Auditor
 
-View transaction history.
+Report Generation Features
+Role-based access control enforced.
 
-Access audit logs.
+Parameterized queries prevent injection risks.
 
-No modification rights.
+Export formats:
 
-4. Application Service Account
+CSV (Excel compatible)
 
-MQ consumption and publishing.
+PDF
 
-Database read/write access.
+Audit logging for report generation activity.
 
-No UI access.
 
-Access Control Principles
 
-Least privilege enforced.
-
-Role mapping controlled via LDAP group membership.
-
-Periodic access reviews conducted.
-
-No shared user accounts allowed.
+The detailed behavior of each report page is described in the Fedwire Interface UI Guide.
