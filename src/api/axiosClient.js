@@ -1,113 +1,74 @@
-@RestController
-@RequestMapping("/fraud")
-public class FraudExportController {
+<mxfile host="app.diagrams.net">
+<diagram name="Flow">
+<mxGraphModel dx="1200" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+<root>
+<mxCell id="0"/>
+<mxCell id="1" parent="0"/>
 
-private final FraudExportService service;
+<!-- Containers -->
+<mxCell id="c1" value="1) Database → Application → File" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=2;" vertex="1" parent="1">
+<mxGeometry x="40" y="40" width="500" height="260" as="geometry"/>
+</mxCell>
 
-public FraudExportController(FraudExportService service) {
-this.service = service;
-}
+<mxCell id="c2" value="2) File → Application → Database" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=2;" vertex="1" parent="1">
+<mxGeometry x="40" y="340" width="500" height="220" as="geometry"/>
+</mxCell>
 
-@PostMapping("/export")
-public ResponseEntity<String> export(
-@RequestParam("from") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
-@RequestParam("to") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
-@RequestParam("chunkDays") int chunkDays,
-@RequestParam(value = "threads", defaultValue = "4") int threads
-) {
-service.exportInChunksParallel(
-Timestamp.valueOf(from),
-Timestamp.valueOf(to),
-chunkDays,
-threads
-);
-return ResponseEntity.ok("Started export");
-}
-}
+<!-- Flow 1 nodes -->
+<mxCell id="db1" value="RTPANDB&#xa;T_TRANSACTION table" style="shape=cylinder3;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+<mxGeometry x="70" y="110" width="130" height="80" as="geometry"/>
+</mxCell>
 
+<mxCell id="app1" value="Fraud DataLoader&#xa;• Read in chunks&#xa;• Encrypt&#xa;• Create CSV" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+<mxGeometry x="230" y="100" width="180" height="110" as="geometry"/>
+</mxCell>
 
-public record TimeRange(Timestamp from, Timestamp to) {}
+<mxCell id="file1" value="Encrypted CSV File" style="shape=folder;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+<mxGeometry x="430" y="120" width="140" height="70" as="geometry"/>
+</mxCell>
 
-public final class ChunkUtil {
-private ChunkUtil() {}
+<mxCell id="s3" value="S3 Bucket" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=2;" vertex="1" parent="1">
+<mxGeometry x="610" y="120" width="140" height="70" as="geometry"/>
+</mxCell>
 
-public static List<TimeRange> split(Timestamp fromTs, Timestamp toTs, int chunkDays) {
-if (chunkDays <= 0) throw new IllegalArgumentException("chunkDays must be > 0");
-Instant start = fromTs.toInstant();
-Instant end = toTs.toInstant();
-if (!start.isBefore(end)) throw new IllegalArgumentException("from must be < to");
+<!-- Flow 2 nodes -->
+<mxCell id="file2" value="CSV File" style="shape=folder;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+<mxGeometry x="90" y="420" width="140" height="70" as="geometry"/>
+</mxCell>
 
-Duration chunk = Duration.ofDays(chunkDays);
-List<TimeRange> out = new ArrayList<>();
-Instant cur = start;
+<mxCell id="app2" value="Account Proxy Application&#xa;• Read CSV&#xa;• Write to Postgres" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+<mxGeometry x="260" y="410" width="200" height="90" as="geometry"/>
+</mxCell>
 
-while (cur.isBefore(end)) {
-Instant next = cur.plus(chunk);
-if (next.isAfter(end)) next = end;
-out.add(new TimeRange(Timestamp.from(cur), Timestamp.from(next)));
-cur = next;
-}
-return out;
-}
-}
+<mxCell id="pg" value="Postgres Database" style="shape=cylinder3;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+<mxGeometry x="490" y="420" width="150" height="80" as="geometry"/>
+</mxCell>
 
+<!-- Edges -->
+<mxCell id="e1" style="endArrow=block;html=1;" edge="1" parent="1" source="db1" target="app1">
+<mxGeometry relative="1" as="geometry"/>
+</mxCell>
 
+<mxCell id="e2" style="endArrow=block;html=1;" edge="1" parent="1" source="app1" target="file1">
+<mxGeometry relative="1" as="geometry"/>
+</mxCell>
 
-@Service
-public class FraudExportService {
+<mxCell id="e3" value="SFTP" style="endArrow=block;html=1;" edge="1" parent="1" source="file1" target="s3">
+<mxGeometry relative="1" as="geometry"/>
+</mxCell>
 
-private final TransactionJdbcTemplateRepository repo;
+<mxCell id="e4" style="endArrow=block;html=1;" edge="1" parent="1" source="s3" target="file2">
+<mxGeometry relative="1" as="geometry"/>
+</mxCell>
 
-public FraudExportService(TransactionJdbcTemplateRepository repo) {
-this.repo = repo;
-}
+<mxCell id="e5" style="endArrow=block;html=1;" edge="1" parent="1" source="file2" target="app2">
+<mxGeometry relative="1" as="geometry"/>
+</mxCell>
 
-public void exportInChunksParallel(Timestamp fromTs, Timestamp toTs, int chunkDays, int threads) {
-List<TimeRange> ranges = ChunkUtil.split(fromTs, toTs, chunkDays);
-
-ExecutorService pool = Executors.newFixedThreadPool(threads);
-
-try {
-List<Callable<Void>> tasks = ranges.stream()
-.map(r -> (Callable<Void>) () -> {
-exportOneChunk(r);
-return null;
-})
-.toList();
-
-// blocks until all chunks finish (or throws if one fails)
-List<Future<Void>> futures = pool.invokeAll(tasks);
-for (Future<Void> f : futures) {
-f.get(); // propagate exceptions
-}
-} catch (InterruptedException ie) {
-Thread.currentThread().interrupt();
-throw new RuntimeException("Export interrupted", ie);
-} catch (ExecutionException ee) {
-throw new RuntimeException("Chunk failed: " + ee.getCause().getMessage(), ee.getCause());
-} finally {
-pool.shutdownNow();
-}
-}
-
-private void exportOneChunk(TimeRange r) {
-// If you page by DW_TRANSACTION_ID within the chunk:
-long lastId = 0L;
-
-while (true) {
-ExportBatchResult res = repo.exportOneFile(r.from(), r.to(), lastId);
-if (res.rowsWritten() == 0) break;
-
-lastId = res.lastDwTransactionId();
-if (!res.hasMore()) break; // if you have this flag; otherwise rely on rowsWritten < pageSize
-}
-}
-}
-
-
-
-WHERE t.SWITCH_COMPLETED_TMSTMP >= ?
-AND t.SWITCH_COMPLETED_TMSTMP < ?
-AND t.DW_TRANSACTION_ID > ?
-ORDER BY t.DW_TRANSACTION_ID
-FETCH FIRST ? ROWS ONLY
+<mxCell id="e6" style="endArrow=block;html=1;" edge="1" parent="1" source="app2" target="pg">
+<mxGeometry relative="1" as="geometry"/>
+</mxCell>
+</root>
+</mxGraphModel>
+</diagram>
+</mxfile>
