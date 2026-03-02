@@ -1,161 +1,96 @@
-public final class Sqls {
-private Sqls() {}
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
-// Accounts: filter once, union-all, distinct once
-public static final String FETCH_ACCOUNTS_SQL = """
-WITH F AS (
-SELECT INSTRUCTING_ACCOUNT_REF, INSTRUCTED_ACCOUNT_REF
-FROM IPS_DW.T_TRANSACTION
-WHERE SWITCH_COMPLETED_TSTMP >= ? AND SWITCH_COMPLETED_TSTMP < ?
-)
-SELECT DISTINCT ACCOUNT_REF
-FROM (
-SELECT INSTRUCTING_ACCOUNT_REF AS ACCOUNT_REF FROM F
-UNION ALL
-SELECT INSTRUCTED_ACCOUNT_REF AS ACCOUNT_REF FROM F
-) X
-WHERE ACCOUNT_REF IS NOT NULL
-""";
-
-// Routing: filter once, union-all, distinct once
-public static final String FETCH_ROUTING_SQL = """
-WITH F AS (
-SELECT
-INSTRUCTING_INSTITUTION_REF,
-INSTRUCTED_INSTITUTION_REF,
-SETTLING_DEBTOR_BANK_CODE,
-SETTLING_CREDITOR_BANK_CODE
-FROM IPS_DW.T_TRANSACTION
-WHERE SWITCH_COMPLETED_TSTMP >= ? AND SWITCH_COMPLETED_TSTMP < ?
-)
-SELECT DISTINCT ROUTING_ID
-FROM (
-SELECT INSTRUCTING_INSTITUTION_REF AS ROUTING_ID FROM F
-UNION ALL
-SELECT INSTRUCTED_INSTITUTION_REF AS ROUTING_ID FROM F
-UNION ALL
-SELECT SETTLING_DEBTOR_BANK_CODE AS ROUTING_ID FROM F
-UNION ALL
-SELECT SETTLING_CREDITOR_BANK_CODE AS ROUTING_ID FROM F
-) X
-WHERE ROUTING_ID IS NOT NULL
-""";
-
-// Fast insert (requires UNIQUE index on key to avoid duplicates)
-public static final String INSERT_ENC_ACCOUNT = """
-INSERT INTO IPS_DW.T_ENC_ACCOUNT (ACCOUNT_REF, ENCRYPTED_ACCOUNT_REF, CREATED_DATE)
-VALUES (?, ?, CURRENT_TIMESTAMP)
-""";
-
-public static final String INSERT_ENC_ROUTING = """
-INSERT INTO IPS_DW.T_ENC_ROUTING (ROUTING_REF, ENCRYPTED_ROUTING_REF, CREATED_DATE)
-VALUES (?, ?, CURRENT_TIMESTAMP)
-""";
-}
-
-
-import org.springframework.jdbc.core.BatchPreparedStatementSetter;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Repository;
-
-import java.sql.*;
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.*;
 
-@Repository
-public class BulkEncryptLoadRepository {
+@Service
+public class BulkEncryptLoadService {
 
-private final JdbcTemplate jdbcTemplate;
-private final FastAesEncryptor encryptor;
+private static final Logger log = LoggerFactory.getLogger(BulkEncryptLoadService.class);
 
-// Tune these
-private final int fetchSize = 10_000; // DB2 fetch size
-private final int batchSize = 10_000; // insert batch size
+private final BulkEncryptLoadRepository repo;
 
-public BulkEncryptLoadRepository(JdbcTemplate jdbcTemplate, FastAesEncryptor encryptor) {
-this.jdbcTemplate = jdbcTemplate;
-this.encryptor = encryptor;
-this.jdbcTemplate.setFetchSize(fetchSize);
+// Tune
+private final int threads = 6; // start with 4–8
+private final Duration chunkSize = Duration.ofDays(14);
+
+public BulkEncryptLoadService(BulkEncryptLoadRepository repo) {
+this.repo = repo;
 }
 
-public long loadAccountsChunk(Timestamp fromTs, Timestamp toTs) {
-return streamEncryptAndBatchInsert(
-Sqls.FETCH_ACCOUNTS_SQL,
-fromTs, toTs,
-Sqls.INSERT_ENC_ACCOUNT,
-"ACCOUNT_REF"
-);
+public void runFullLoad(LocalDateTime from, LocalDateTime to, boolean loadAccounts, boolean loadRouting) throws InterruptedException {
+List<TimeChunk> chunks = splitIntoChunks(from, to, chunkSize);
+
+ExecutorService pool = Executors.newFixedThreadPool(threads);
+CompletionService<ChunkResult> cs = new ExecutorCompletionService<>(pool);
+
+log.info("Starting load: chunks={}, threads={}, from={}, to={}", chunks.size(), threads, from, to);
+
+int submitted = 0;
+for (TimeChunk c : chunks) {
+cs.submit(() -> processChunk(c, loadAccounts, loadRouting));
+submitted++;
 }
 
-public long loadRoutingChunk(Timestamp fromTs, Timestamp toTs) {
-return streamEncryptAndBatchInsert(
-Sqls.FETCH_ROUTING_SQL,
-fromTs, toTs,
-Sqls.INSERT_ENC_ROUTING,
-"ROUTING_ID"
-);
-}
+long totalAccounts = 0;
+long totalRouting = 0;
 
-private long streamEncryptAndBatchInsert(
-String fetchSql,
-Timestamp fromTs,
-Timestamp toTs,
-String insertSql,
-String colName
-) {
-List<String> refs = new ArrayList<>(batchSize);
-List<String> encs = new ArrayList<>(batchSize);
-
-final long[] processed = {0};
-
-jdbcTemplate.query(con -> {
-PreparedStatement ps = con.prepareStatement(
-fetchSql,
-ResultSet.TYPE_FORWARD_ONLY,
-ResultSet.CONCUR_READ_ONLY
-);
-ps.setFetchSize(fetchSize);
-ps.setTimestamp(1, fromTs);
-ps.setTimestamp(2, toTs);
-return ps;
-}, rs -> {
-while (rs.next()) {
-String ref = rs.getString(colName);
-if (ref == null || ref.isBlank()) continue;
-
-String enc = encryptor.encrypt(ref);
-
-refs.add(ref);
-encs.add(enc);
-processed[0]++;
-
-if (refs.size() >= batchSize) {
-batchInsert(insertSql, refs, encs);
-refs.clear();
-encs.clear();
+for (int i = 0; i < submitted; i++) {
+try {
+ChunkResult r = cs.take().get();
+totalAccounts += r.accounts;
+totalRouting += r.routing;
+log.info("Chunk done {} -> {} | accounts={}, routing={}, ms={}",
+r.from, r.to, r.accounts, r.routing, r.millis);
+} catch (ExecutionException e) {
+pool.shutdownNow();
+throw new RuntimeException("Chunk failed", e.getCause());
 }
 }
-});
 
-if (!refs.isEmpty()) {
-batchInsert(insertSql, refs, encs);
-}
+pool.shutdown();
+pool.awaitTermination(1, TimeUnit.HOURS);
 
-return processed[0];
+log.info("DONE. Total accounts={}, total routing={}", totalAccounts, totalRouting);
 }
 
-private void batchInsert(String sql, List<String> refs, List<String> encs) {
-jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
-@Override
-public void setValues(PreparedStatement ps, int i) throws SQLException {
-ps.setString(1, refs.get(i));
-ps.setString(2, encs.get(i));
+private ChunkResult processChunk(TimeChunk c, boolean loadAccounts, boolean loadRouting) {
+long start = System.currentTimeMillis();
+
+long accounts = 0;
+long routing = 0;
+
+Timestamp fromTs = Timestamp.valueOf(c.from);
+Timestamp toTs = Timestamp.valueOf(c.to);
+
+// Each chunk is independent; commits happen per batch in JDBC driver/DB
+if (loadAccounts) accounts = repo.loadAccountsChunk(fromTs, toTs);
+if (loadRouting) routing = repo.loadRoutingChunk(fromTs, toTs);
+
+long ms = System.currentTimeMillis() - start;
+return new ChunkResult(c.from, c.to, accounts, routing, ms);
 }
 
-@Override
-public int getBatchSize() {
-return refs.size();
+private static List<TimeChunk> splitIntoChunks(LocalDateTime from, LocalDateTime to, Duration step) {
+List<TimeChunk> out = new ArrayList<>();
+LocalDateTime cur = from;
+while (cur.isBefore(to)) {
+LocalDateTime next = cur.plus(step);
+if (next.isAfter(to)) next = to;
+out.add(new TimeChunk(cur, next));
+cur = next;
 }
-});
+return out;
 }
+
+private record TimeChunk(LocalDateTime from, LocalDateTime to) {}
+private record ChunkResult(LocalDateTime from, LocalDateTime to, long accounts, long routing, long millis) {}
 }
