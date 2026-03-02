@@ -1,81 +1,161 @@
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataAccessException;
+public final class Sqls {
+private Sqls() {}
+
+// Accounts: filter once, union-all, distinct once
+public static final String FETCH_ACCOUNTS_SQL = """
+WITH F AS (
+SELECT INSTRUCTING_ACCOUNT_REF, INSTRUCTED_ACCOUNT_REF
+FROM IPS_DW.T_TRANSACTION
+WHERE SWITCH_COMPLETED_TSTMP >= ? AND SWITCH_COMPLETED_TSTMP < ?
+)
+SELECT DISTINCT ACCOUNT_REF
+FROM (
+SELECT INSTRUCTING_ACCOUNT_REF AS ACCOUNT_REF FROM F
+UNION ALL
+SELECT INSTRUCTED_ACCOUNT_REF AS ACCOUNT_REF FROM F
+) X
+WHERE ACCOUNT_REF IS NOT NULL
+""";
+
+// Routing: filter once, union-all, distinct once
+public static final String FETCH_ROUTING_SQL = """
+WITH F AS (
+SELECT
+INSTRUCTING_INSTITUTION_REF,
+INSTRUCTED_INSTITUTION_REF,
+SETTLING_DEBTOR_BANK_CODE,
+SETTLING_CREDITOR_BANK_CODE
+FROM IPS_DW.T_TRANSACTION
+WHERE SWITCH_COMPLETED_TSTMP >= ? AND SWITCH_COMPLETED_TSTMP < ?
+)
+SELECT DISTINCT ROUTING_ID
+FROM (
+SELECT INSTRUCTING_INSTITUTION_REF AS ROUTING_ID FROM F
+UNION ALL
+SELECT INSTRUCTED_INSTITUTION_REF AS ROUTING_ID FROM F
+UNION ALL
+SELECT SETTLING_DEBTOR_BANK_CODE AS ROUTING_ID FROM F
+UNION ALL
+SELECT SETTLING_CREDITOR_BANK_CODE AS ROUTING_ID FROM F
+) X
+WHERE ROUTING_ID IS NOT NULL
+""";
+
+// Fast insert (requires UNIQUE index on key to avoid duplicates)
+public static final String INSERT_ENC_ACCOUNT = """
+INSERT INTO IPS_DW.T_ENC_ACCOUNT (ACCOUNT_REF, ENCRYPTED_ACCOUNT_REF, CREATED_DATE)
+VALUES (?, ?, CURRENT_TIMESTAMP)
+""";
+
+public static final String INSERT_ENC_ROUTING = """
+INSERT INTO IPS_DW.T_ENC_ROUTING (ROUTING_REF, ENCRYPTED_ROUTING_REF, CREATED_DATE)
+VALUES (?, ?, CURRENT_TIMESTAMP)
+""";
+}
+
+
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Repository;
 
-import java.sql.Timestamp;
+import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.*;
 
-@Slf4j
-@Service
-@RequiredArgsConstructor
-public class Db2DeadlockReproService {
+@Repository
+public class BulkEncryptLoadRepository {
 
 private final JdbcTemplate jdbcTemplate;
+private final FastAesEncryptor encryptor;
 
-// Use fixed thread pool for reproducibility
-private final ExecutorService exec = Executors.newFixedThreadPool(10);
+// Tune these
+private final int fetchSize = 10_000; // DB2 fetch size
+private final int batchSize = 10_000; // insert batch size
 
-// Query A: date range style (uses view currency like your prod)
-private static final String SQL_A =
-"""
-SELECT txn.transaction_id, ccy.iso_character_code
-FROM ips_dw_transaction txn
-LEFT JOIN currency ccy ON ccy.code = txn.settling_currency_code
-WHERE txn.switch_completed_tmstmp BETWEEN ? AND ?
-AND (txn.instructing_bank_code = ? OR txn.instructed_bank_code = ?)
-ORDER BY txn.dw_transaction_id
-FETCH FIRST 200 ROWS ONLY
-WITH UR
-""";
-
-// Query B: transaction id style
-private static final String SQL_B =
-"""
-SELECT txn.transaction_id, ccy.iso_character_code
-FROM ips_dw_transaction txn
-LEFT JOIN currency ccy ON ccy.code = txn.settling_currency_code
-WHERE txn.transaction_id = ?
-WITH UR
-""";
-
-public void reproduce(int loops) {
-Timestamp from = Timestamp.valueOf("2025-05-13 00:00:00");
-Timestamp to = Timestamp.valueOf("2025-05-13 23:59:59");
-
-String participantA = "0000000002A1";
-String participantB = "0000000001A1";
-String sampleTxnId = "20250513000000001A1B0070000002263262";
-
-int deadlocks = 0;
-
-for (int i = 1; i <= loops; i++) {
-CompletableFuture<List<?>> f1 = CompletableFuture.supplyAsync(() ->
-jdbcTemplate.queryForList(SQL_A, from, to, participantA, participantA), exec);
-
-CompletableFuture<List<?>> f2 = CompletableFuture.supplyAsync(() ->
-jdbcTemplate.queryForList(SQL_B, sampleTxnId), exec);
-
-try {
-CompletableFuture.allOf(f1, f2).join();
-} catch (CompletionException ce) {
-Throwable cause = ce.getCause();
-if (cause instanceof DataAccessException dae && Db2LockUtil.isDeadlock(dae)) {
-deadlocks++;
-log.warn("DEADLOCK hit on iteration {} -> {}", i, dae.getMessage());
-} else {
-log.error("Non-deadlock failure on iteration " + i, cause);
-throw ce;
-}
+public BulkEncryptLoadRepository(JdbcTemplate jdbcTemplate, FastAesEncryptor encryptor) {
+this.jdbcTemplate = jdbcTemplate;
+this.encryptor = encryptor;
+this.jdbcTemplate.setFetchSize(fetchSize);
 }
 
-if (i % 100 == 0) {
-log.info("progress={} deadlocks={}", i, deadlocks);
-}
+public long loadAccountsChunk(Timestamp fromTs, Timestamp toTs) {
+return streamEncryptAndBatchInsert(
+Sqls.FETCH_ACCOUNTS_SQL,
+fromTs, toTs,
+Sqls.INSERT_ENC_ACCOUNT,
+"ACCOUNT_REF"
+);
 }
 
-log.info("DONE loops={} deadlocks={}", loops, deadlocks);
+public long loadRoutingChunk(Timestamp fromTs, Timestamp toTs) {
+return streamEncryptAndBatchInsert(
+Sqls.FETCH_ROUTING_SQL,
+fromTs, toTs,
+Sqls.INSERT_ENC_ROUTING,
+"ROUTING_ID"
+);
+}
+
+private long streamEncryptAndBatchInsert(
+String fetchSql,
+Timestamp fromTs,
+Timestamp toTs,
+String insertSql,
+String colName
+) {
+List<String> refs = new ArrayList<>(batchSize);
+List<String> encs = new ArrayList<>(batchSize);
+
+final long[] processed = {0};
+
+jdbcTemplate.query(con -> {
+PreparedStatement ps = con.prepareStatement(
+fetchSql,
+ResultSet.TYPE_FORWARD_ONLY,
+ResultSet.CONCUR_READ_ONLY
+);
+ps.setFetchSize(fetchSize);
+ps.setTimestamp(1, fromTs);
+ps.setTimestamp(2, toTs);
+return ps;
+}, rs -> {
+while (rs.next()) {
+String ref = rs.getString(colName);
+if (ref == null || ref.isBlank()) continue;
+
+String enc = encryptor.encrypt(ref);
+
+refs.add(ref);
+encs.add(enc);
+processed[0]++;
+
+if (refs.size() >= batchSize) {
+batchInsert(insertSql, refs, encs);
+refs.clear();
+encs.clear();
+}
+}
+});
+
+if (!refs.isEmpty()) {
+batchInsert(insertSql, refs, encs);
+}
+
+return processed[0];
+}
+
+private void batchInsert(String sql, List<String> refs, List<String> encs) {
+jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
+@Override
+public void setValues(PreparedStatement ps, int i) throws SQLException {
+ps.setString(1, refs.get(i));
+ps.setString(2, encs.get(i));
+}
+
+@Override
+public int getBatchSize() {
+return refs.size();
+}
+});
 }
 }
