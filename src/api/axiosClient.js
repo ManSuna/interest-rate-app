@@ -1,36 +1,90 @@
-@RestController
-@RequestMapping("/api/rtp")
-@RequiredArgsConstructor
-@Slf4j
-public class RTPDataLoadController {
-
-private final RTPDataLoadService rtpDataLoadService;
-
-@PostMapping("/full-load")
-public ResponseEntity<String> runFullLoad(
-@RequestParam String from,
-@RequestParam String to,
-@RequestParam(defaultValue = "true") boolean loadAccounts,
-@RequestParam(defaultValue = "true") boolean loadRouting
+public long streamEncryptAndBatchInsert(
+String fetchSql,
+String insertSql,
+Timestamp fromTs,
+Timestamp toTs,
+String colName,
+int fetchSize,
+int batchSize
 ) {
 
-try {
-LocalDateTime fromTime = LocalDateTime.parse(from);
-LocalDateTime toTime = LocalDateTime.parse(to);
+List<String> refs = new ArrayList<>(batchSize);
+List<String> encs = new ArrayList<>(batchSize);
 
-rtpDataLoadService.runFullLoad(
-fromTime,
-toTime,
-loadAccounts,
-loadRouting
+final long[] processed = {0};
+
+jdbcTemplate.query(connection -> {
+
+PreparedStatement ps = connection.prepareStatement(
+fetchSql,
+ResultSet.TYPE_FORWARD_ONLY,
+ResultSet.CONCUR_READ_ONLY
 );
 
-return ResponseEntity.ok("Full load started successfully");
+ps.setFetchSize(fetchSize);
 
+ps.setTimestamp(1, fromTs);
+ps.setTimestamp(2, toTs);
+
+return ps;
+
+}, rs -> {
+
+while (rs.next()) {
+
+String ref = rs.getString(colName);
+
+if (ref == null || ref.isBlank()) {
+continue;
+}
+
+String enc;
+try {
+enc = encDecWithAES.encrypt(ref);
 } catch (Exception e) {
-log.error("Error running full load", e);
-return ResponseEntity.internalServerError()
-.body("Error: " + e.getMessage());
+throw new RuntimeException("Encryption failed", e);
+}
+
+refs.add(ref);
+encs.add(enc);
+processed[0]++;
+
+if (refs.size() >= batchSize) {
+flush(insertSql, refs, encs);
 }
 }
+});
+
+flush(insertSql, refs, encs);
+
+return processed[0];
 }
+
+private void flush(String insertSql, List<String> refs, List<String> encs) {
+
+if (refs.isEmpty()) return;
+
+jdbcTemplate.batchUpdate(insertSql, new BatchPreparedStatementSetter() {
+
+@Override
+public void setValues(PreparedStatement ps, int i) throws SQLException {
+ps.setString(1, refs.get(i));
+ps.setString(2, encs.get(i));
+}
+
+@Override
+public int getBatchSize() {
+return refs.size();
+}
+});
+
+refs.clear();
+encs.clear();
+}
+
+
+
+
+
+
+
