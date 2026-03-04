@@ -1,90 +1,94 @@
-public long streamEncryptAndBatchInsert(
-String fetchSql,
-String insertSql,
-Timestamp fromTs,
-Timestamp toTs,
-String colName,
-int fetchSize,
-int batchSize
-) {
+package org.tch.fed.config;
 
-List<String> refs = new ArrayList<>(batchSize);
-List<String> encs = new ArrayList<>(batchSize);
+import com.ibm.mq.jms.MQConnectionFactory;
+import com.ibm.msg.client.wmq.WMQConstants;
+import jakarta.jms.ConnectionFactory;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.tch.fed.properties.MQProperties;
 
-final long[] processed = {0};
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
-jdbcTemplate.query(connection -> {
+@Configuration
+@EnableConfigurationProperties(MQProperties.class)
+public class IbmMqCommonConfig {
 
-PreparedStatement ps = connection.prepareStatement(
-fetchSql,
-ResultSet.TYPE_FORWARD_ONLY,
-ResultSet.CONCUR_READ_ONLY
-);
+    private final MQProperties mqProperties;
 
-ps.setFetchSize(fetchSize);
+    public IbmMqCommonConfig(MQProperties mqProperties) {
+        this.mqProperties = mqProperties;
+    }
 
-ps.setTimestamp(1, fromTs);
-ps.setTimestamp(2, toTs);
+    @Bean(name = "fedwireConnectionFactory")
+    public ConnectionFactory fedwireConnectionFactory() throws Exception {
+        return buildMqConnectionFactory(mqProperties.getCommon(), mqProperties.getFedwire());
+    }
 
-return ps;
+    @Bean(name = "fednowConnectionFactory")
+    public ConnectionFactory fednowConnectionFactory() throws Exception {
+        return buildMqConnectionFactory(mqProperties.getCommon(), mqProperties.getFednow());
+    }
 
-}, rs -> {
+    private ConnectionFactory buildMqConnectionFactory(MQProperties.Common common,
+                                                      MQProperties.Endpoint endpoint) throws Exception {
 
-while (rs.next()) {
+        // Resolve relative path like "config/fedwire-interface.jks" into absolute disk path
+        Path keyStorePath = resolveDiskPath(common.getKeyStorePath());
+        Path trustStorePath = resolveDiskPath(common.getTrustStorePath());
 
-String ref = rs.getString(colName);
+        // Basic validation so you don’t chase Tomcat temp-path weirdness
+        if (!Files.exists(keyStorePath)) {
+            throw new IllegalStateException("Keystore not found on disk: " + keyStorePath);
+        }
+        if (!Files.exists(trustStorePath)) {
+            throw new IllegalStateException("Truststore not found on disk: " + trustStorePath);
+        }
 
-if (ref == null || ref.isBlank()) {
-continue;
+        // Tell JVM SSL where the stores are. IBM MQ uses JVM SSL automatically.
+        System.setProperty("javax.net.ssl.keyStore", keyStorePath.toString());
+        System.setProperty("javax.net.ssl.keyStorePassword", common.getKeyStorePassword());
+        System.setProperty("javax.net.ssl.keyStoreType", common.getKeyStoreType());
+
+        System.setProperty("javax.net.ssl.trustStore", trustStorePath.toString());
+        System.setProperty("javax.net.ssl.trustStorePassword", common.getTrustStorePassword());
+        System.setProperty("javax.net.ssl.trustStoreType", common.getTrustStoreType());
+
+        MQConnectionFactory cf = new MQConnectionFactory();
+        cf.setTransportType(WMQConstants.WMQ_CM_CLIENT);
+
+        // MQ endpoint config
+        cf.setQueueManager(endpoint.getQueueManager());
+        cf.setConnectionNameList(endpoint.getConnName());
+        cf.setChannel(endpoint.getChannel());
+
+        // TLS settings
+        if (endpoint.getCipherSuite() != null && !endpoint.getCipherSuite().isBlank()) {
+            cf.setStringProperty(WMQConstants.WMQ_SSL_CIPHER_SUITE, endpoint.getCipherSuite());
+        }
+        if (endpoint.getPeerName() != null && !endpoint.getPeerName().isBlank()) {
+            cf.setStringProperty(WMQConstants.WMQ_SSL_PEER_NAME, endpoint.getPeerName());
+        }
+
+        return cf;
+    }
+
+    /**
+     * Accepts:
+     *  - absolute path: C:\...\config\fedwire-interface.jks
+     *  - relative path: config/fedwire-interface.jks (resolved from current working dir)
+     */
+    private static Path resolveDiskPath(String rawPath) {
+        if (rawPath == null || rawPath.isBlank()) {
+            throw new IllegalArgumentException("Keystore/truststore path is blank");
+        }
+
+        Path p = Paths.get(rawPath);
+        if (!p.isAbsolute()) {
+            p = Paths.get(System.getProperty("user.dir")).resolve(p);
+        }
+        return p.normalize().toAbsolutePath();
+    }
 }
-
-String enc;
-try {
-enc = encDecWithAES.encrypt(ref);
-} catch (Exception e) {
-throw new RuntimeException("Encryption failed", e);
-}
-
-refs.add(ref);
-encs.add(enc);
-processed[0]++;
-
-if (refs.size() >= batchSize) {
-flush(insertSql, refs, encs);
-}
-}
-});
-
-flush(insertSql, refs, encs);
-
-return processed[0];
-}
-
-private void flush(String insertSql, List<String> refs, List<String> encs) {
-
-if (refs.isEmpty()) return;
-
-jdbcTemplate.batchUpdate(insertSql, new BatchPreparedStatementSetter() {
-
-@Override
-public void setValues(PreparedStatement ps, int i) throws SQLException {
-ps.setString(1, refs.get(i));
-ps.setString(2, encs.get(i));
-}
-
-@Override
-public int getBatchSize() {
-return refs.size();
-}
-});
-
-refs.clear();
-encs.clear();
-}
-
-
-
-
-
-
-
