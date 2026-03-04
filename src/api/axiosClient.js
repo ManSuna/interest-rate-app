@@ -1,6 +1,3 @@
-import freemarker.cache.ClassTemplateLoader;
-import freemarker.cache.FileTemplateLoader;
-import freemarker.cache.TemplateLoader;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
@@ -8,45 +5,49 @@ import freemarker.template.TemplateException;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringWriter;
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
+import java.io.Writer;
 
 public class FtlService {
 
-    public String generateXmlMsg(Object model, String basePath, String ftlPath)
-            throws IOException, TemplateException {
+    private final Configuration configuration;
 
-        Configuration cfg = new Configuration(Configuration.VERSION_2_3_32);
-        cfg.setDefaultEncoding(StandardCharsets.UTF_8.name());
-
-        // basePath examples:
-        //   "classpath:/ftl"
-        //   "/opt/app/templates"   (disk)
-        TemplateLoader loader = createLoader(basePath);
-        cfg.setTemplateLoader(loader);
-
-        Template template = cfg.getTemplate(ftlPath);
-
-        StringWriter out = new StringWriter();
-        // FreeMarker wants a Map or a bean (bean works too). If you already used beans, keep as-is.
-        template.process(model, out);
-
-        return out.toString();
+    public FtlService() {
+        configuration = new Configuration(Configuration.VERSION_2_3_31);
+        // Don’t hardcode loader here because you change it per call based on ftlPath
     }
 
-    private TemplateLoader createLoader(String basePath) throws IOException {
-        if (basePath == null || basePath.isBlank()) {
-            // default to classpath /ftl
-            return new ClassTemplateLoader(getClass().getClassLoader(), "/ftl");
+    public String generateXmlMsg(Object ftlPojo, String ftlPath, String ftlFileName)
+            throws IOException, TemplateException {
+
+        Writer writer = new StringWriter();
+
+        configuration.clearTemplateCache();
+
+        // ✅ If templates are inside JAR
+        if (ftlPath != null && (ftlPath.startsWith("classpath:") || ftlPath.startsWith("/"))) {
+
+            // examples supported:
+            // "classpath:/ftl"
+            // "/ftl"
+            String base = ftlPath.startsWith("classpath:")
+                    ? ftlPath.substring("classpath:".length())
+                    : ftlPath;
+
+            if (!base.startsWith("/")) {
+                base = "/" + base;
+            }
+
+            // Load from classpath inside the jar
+            configuration.setClassForTemplateLoading(FtlService.class, base);
+
+        } else {
+            // ✅ Otherwise treat it as a folder on disk
+            configuration.setDirectoryForTemplateLoading(new File(ftlPath));
         }
 
-        if (basePath.startsWith("classpath:")) {
-            String root = basePath.substring("classpath:".length()); // e.g. "/ftl"
-            if (root.isBlank()) root = "/";
-            return new ClassTemplateLoader(getClass().getClassLoader(), root);
-        }
+        Template template = configuration.getTemplate(ftlFileName);
+        template.process(ftlPojo, writer);
 
-        // otherwise treat as disk folder
-        return new FileTemplateLoader(new File(basePath));
+        return writer.toString();
     }
 }
