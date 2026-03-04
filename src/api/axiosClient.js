@@ -1,94 +1,185 @@
-package org.tch.fed.config;
+package org.tch.fed.services;
 
-import com.ibm.mq.jms.MQConnectionFactory;
-import com.ibm.msg.client.wmq.WMQConstants;
-import jakarta.jms.ConnectionFactory;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.tch.fed.properties.MQProperties;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
+import java.io.InputStream;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import org.tch.fed.properties.XmlProperties;
+import org.tch.fed.util.SpringResourceReader;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class FWMessageProcessor {
 
-@Configuration
-@EnableConfigurationProperties(MQProperties.class)
-public class IbmMqCommonConfig {
+  private final XmlProperties xmlProperties;
+  private final SpringResourceReader resourceReader;
+  private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private final MQProperties mqProperties;
+  /**
+   * Cache template maps by system key (fedwire/fednow).
+   */
+  private final Map<String, TemplateMap> templateMapsBySystem = new ConcurrentHashMap<>();
 
-    public IbmMqCommonConfig(MQProperties mqProperties) {
-        this.mqProperties = mqProperties;
+  @PostConstruct
+  public void init() {
+    // Preload both if present (optional but nice)
+    xmlProperties.getFtl().getMessageTypeItems().forEach((system, location) -> {
+      try {
+        templateMapsBySystem.put(system, loadTemplateMap(location));
+        log.info("Loaded template map for system={} from {}", system, location);
+      } catch (Exception e) {
+        log.error("Failed to load template map for system={} from {}", system, location, e);
+      }
+    });
+  }
+
+  private TemplateMap loadTemplateMap(String location) throws Exception {
+    try (InputStream in = resourceReader.open(location)) {
+      return objectMapper.readValue(in, TemplateMap.class);
+    }
+  }
+
+  /**
+   * Example call: processMessage("fedwire", messageType, baseVo)
+   */
+  public String processMessage(String system, String messageType, BaseVo baseVo) throws TransformerException {
+    TemplateMap templateMap = templateMapsBySystem.computeIfAbsent(system, sys -> {
+      String loc = xmlProperties.getFtl().getMessageTypeItems().get(sys);
+      if (loc == null) {
+        throw new IllegalArgumentException("No template-map configured for system=" + sys);
+      }
+      try {
+        return loadTemplateMap(loc);
+      } catch (Exception e) {
+        throw new RuntimeException("Failed to load template map for system=" + sys + " from " + loc, e);
+      }
+    });
+
+    TemplateDefinition def = templateMap.getChipsMessageMap().get(messageType);
+    if (def == null) {
+      throw new TransformerException("Unknown message type " + messageType + " for system " + system);
     }
 
-    @Bean(name = "fedwireConnectionFactory")
-    public ConnectionFactory fedwireConnectionFactory() throws Exception {
-        return buildMqConnectionFactory(mqProperties.getCommon(), mqProperties.getFedwire());
-    }
+    // Your existing logic — the important part is: def.getFtl() can now be classpath:
+    FWIMessageTemplate template = getMessageTemplate(def);
+    template.setBaseVo(baseVo);
+    return template.generateXml(messageType);
+  }
 
-    @Bean(name = "fednowConnectionFactory")
-    public ConnectionFactory fednowConnectionFactory() throws Exception {
-        return buildMqConnectionFactory(mqProperties.getCommon(), mqProperties.getFednow());
-    }
-
-    private ConnectionFactory buildMqConnectionFactory(MQProperties.Common common,
-                                                      MQProperties.Endpoint endpoint) throws Exception {
-
-        // Resolve relative path like "config/fedwire-interface.jks" into absolute disk path
-        Path keyStorePath = resolveDiskPath(common.getKeyStorePath());
-        Path trustStorePath = resolveDiskPath(common.getTrustStorePath());
-
-        // Basic validation so you don’t chase Tomcat temp-path weirdness
-        if (!Files.exists(keyStorePath)) {
-            throw new IllegalStateException("Keystore not found on disk: " + keyStorePath);
-        }
-        if (!Files.exists(trustStorePath)) {
-            throw new IllegalStateException("Truststore not found on disk: " + trustStorePath);
-        }
-
-        // Tell JVM SSL where the stores are. IBM MQ uses JVM SSL automatically.
-        System.setProperty("javax.net.ssl.keyStore", keyStorePath.toString());
-        System.setProperty("javax.net.ssl.keyStorePassword", common.getKeyStorePassword());
-        System.setProperty("javax.net.ssl.keyStoreType", common.getKeyStoreType());
-
-        System.setProperty("javax.net.ssl.trustStore", trustStorePath.toString());
-        System.setProperty("javax.net.ssl.trustStorePassword", common.getTrustStorePassword());
-        System.setProperty("javax.net.ssl.trustStoreType", common.getTrustStoreType());
-
-        MQConnectionFactory cf = new MQConnectionFactory();
-        cf.setTransportType(WMQConstants.WMQ_CM_CLIENT);
-
-        // MQ endpoint config
-        cf.setQueueManager(endpoint.getQueueManager());
-        cf.setConnectionNameList(endpoint.getConnName());
-        cf.setChannel(endpoint.getChannel());
-
-        // TLS settings
-        if (endpoint.getCipherSuite() != null && !endpoint.getCipherSuite().isBlank()) {
-            cf.setStringProperty(WMQConstants.WMQ_SSL_CIPHER_SUITE, endpoint.getCipherSuite());
-        }
-        if (endpoint.getPeerName() != null && !endpoint.getPeerName().isBlank()) {
-            cf.setStringProperty(WMQConstants.WMQ_SSL_PEER_NAME, endpoint.getPeerName());
-        }
-
-        return cf;
-    }
-
-    /**
-     * Accepts:
-     *  - absolute path: C:\...\config\fedwire-interface.jks
-     *  - relative path: config/fedwire-interface.jks (resolved from current working dir)
-     */
-    private static Path resolveDiskPath(String rawPath) {
-        if (rawPath == null || rawPath.isBlank()) {
-            throw new IllegalArgumentException("Keystore/truststore path is blank");
-        }
-
-        Path p = Paths.get(rawPath);
-        if (!p.isAbsolute()) {
-            p = Paths.get(System.getProperty("user.dir")).resolve(p);
-        }
-        return p.normalize().toAbsolutePath();
-    }
+  private FWIMessageTemplate getMessageTemplate(TemplateDefinition def) {
+    // your existing reflection/lookup
+    // IMPORTANT: make sure template reads def.getFtl() via ResourceLoader, not Files/Path.
+    return new FWIMessageTemplate(def, resourceReader);
+  }
 }
+
+
+
+
+
+package org.tch.fed.services;
+
+import java.io.InputStream;
+import lombok.RequiredArgsConstructor;
+import org.tch.fed.util.SpringResourceReader;
+
+@RequiredArgsConstructor
+public class FWIMessageTemplate {
+
+  private final TemplateDefinition def;
+  private final SpringResourceReader resourceReader;
+
+  private BaseVo baseVo;
+
+  public void setBaseVo(BaseVo baseVo) {
+    this.baseVo = baseVo;
+  }
+
+  public String generateXml(String messageType) {
+    String ftlLocation = def.getFtl(); // e.g. classpath:/ftl/fedwire/abcd.ftl
+    try (InputStream in = resourceReader.open(ftlLocation)) {
+      // OPTION A: read template text and process yourself
+      // OPTION B (recommended): use FreeMarker with StringTemplateLoader or custom loader
+      String templateText = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+
+      // TODO: apply your existing merge logic (freemarker / placeholders / etc.)
+      return applyTemplate(templateText, baseVo);
+
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to read FTL: " + ftlLocation, e);
+    }
+  }
+
+  private String applyTemplate(String templateText, BaseVo model) {
+    // hook in your existing templating engine
+    return templateText; // placeholder
+  }
+}
+
+
+
+package org.tch.fed.util;
+
+import java.io.IOException;
+import java.io.InputStream;
+import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
+import org.springframework.stereotype.Component;
+
+@Component
+@RequiredArgsConstructor
+public class SpringResourceReader {
+
+  private final ResourceLoader resourceLoader;
+
+  public InputStream open(String location) throws IOException {
+    Resource resource = resourceLoader.getResource(location);
+    if (!resource.exists()) {
+      throw new IOException("Resource not found: " + location);
+    }
+    return resource.getInputStream();
+  }
+}
+
+
+
+package org.tch.fed.properties;
+
+import java.util.HashMap;
+import java.util.Map;
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+@Data
+@ConfigurationProperties(prefix = "xml")
+public class XmlProperties {
+
+  private Ftl ftl = new Ftl();
+
+  @Data
+  public static class Ftl {
+    /**
+     * Example:
+     *  fedwire -> classpath:/ftl/fedwire/template-map.json
+     *  fednow  -> classpath:/ftl/fednow/template-map.json
+     */
+    private Map<String, String> messageTypeItems = new HashMap<>();
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
