@@ -37,3 +37,8 @@ WHERE NOT EXISTS
     FROM DDU.T_DDU_PARTICIPANT T
     WHERE T.DDU_PARTICIPANT_NAME_ALIAS = S.FUNDING_AGENT_IDENTIFIER
 );
+
+
+^([^,\r\n]*,){9,}[^,\r\n]*$
+
+^([^,\r\n]*,){0,7}[^,\r\n]*$
