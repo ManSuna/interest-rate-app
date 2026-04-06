@@ -1,3 +1,54 @@
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.stereotype.Repository;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.List;
+
+@Repository
+public class ReceivedMessageDao {
+
+    private final JdbcTemplate jdbcTemplate;
+    private final String currentCycleStatisticsQuery;
+
+    public ReceivedMessageDao(
+            JdbcTemplate jdbcTemplate,
+            @Value("${dashboard.currentCycleStatistics.query}") String currentCycleStatisticsQuery) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.currentCycleStatisticsQuery = currentCycleStatisticsQuery;
+    }
+
+    public List<CurrentCycleStatisticsRow> findCurrentCycleStatisticsRows(Timestamp fromCreateTimestamp) {
+        return jdbcTemplate.query(
+                currentCycleStatisticsQuery,
+                new CurrentCycleStatisticsRowMapper(),
+                fromCreateTimestamp
+        );
+    }
+
+    private static class CurrentCycleStatisticsRowMapper implements RowMapper<CurrentCycleStatisticsRow> {
+
+        @Override
+        public CurrentCycleStatisticsRow mapRow(ResultSet rs, int rowNum) throws SQLException {
+
+            CurrentCycleStatisticsRow row = new CurrentCycleStatisticsRow();
+
+            row.setSource(rs.getString("SOURCE"));
+            row.setTopUps(rs.getInt("TOP_UPS"));
+            row.setDrawdowns(rs.getInt("DRAWDOWNS"));
+            row.setAdmi006(rs.getInt("ADMI_006"));
+            row.setCamt052(rs.getInt("CAMT_052"));
+            row.setAdmi002(rs.getInt("ADMI_002"));
+            row.setPacs002(rs.getInt("PACS_002"));
+
+            return row;
+        }
+    }
+}
+
 SELECT
     SOURCE_SYSTEM AS SOURCE,
     SUM(CASE WHEN MESSAGE_TYPE = 'TOP_UPS' THEN 1 ELSE 0 END) AS TOP_UPS,
