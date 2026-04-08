@@ -1,14 +1,40 @@
 
 
-Skip to content
-Using Gmail with screen readers
-1 of 2,176
-(no subject)
-Inbox
 
 Sunil Gurung <linusgnurug@gmail.com>
-8:44 AM (0 minutes ago)
+9:29 AM (0 minutes ago)
 to me
+
+function loadCycleStatisticsTable() {
+$.ajax({
+type: "GET",
+dataType: "json",
+url: getSystemStatisticsXhrURL,
+success: function(response) {
+
+$("#cycleDateCell").text(response.cycleDate || "--");
+
+if (!response.rows) return;
+
+response.rows.forEach(function(row) {
+
+var prefix = "";
+
+if (row.source === "Fedwire") prefix = "fw";
+if (row.source === "FedNow") prefix = "fn";
+
+if (!prefix) return;
+
+$("#" + prefix + "TopUps").text(row.topUps || 0);
+$("#" + prefix + "Drawdowns").text(row.drawdowns || 0);
+$("#" + prefix + "Admi006").text(row.admi006 || 0);
+$("#" + prefix + "Camt052").text(row.camt052 || 0);
+$("#" + prefix + "Admi002").text(row.admi002 || 0);
+$("#" + prefix + "Pacs002").text(row.pacs002 || 0);
+});
+}
+});
+}
 
 <div class="system-stats-panel">
 <div class="system-stats-title">
