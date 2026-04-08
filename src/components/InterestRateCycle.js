@@ -1,82 +1,238 @@
-import React, { useState } from 'react';
-import { Formik, Form, Field, ErrorMessage } from 'formik';
-import DatePicker from 'react-datepicker';
-import * as Yup from 'yup';
-import 'react-datepicker/dist/react-datepicker.css';
+import org.springframework.stereotype.Service;
 
-const validationSchema = Yup.object().shape({
-  startDate: Yup.date()
-    .required('Start Date is required')
-    .typeError('Invalid date format (YYYY-MM-DD)'),
-  endDate: Yup.date()
-    .required('End Date is required')
-    .typeError('Invalid date format (YYYY-MM-DD)'),
-  interestPaymentAmount: Yup.string()
-    .required('Interest Payment Amount is required')
-    .matches(/^\d+(\.\d{1,2})?$/, 'Must be a valid amount (e.g., 12345.67)'),
-});
+import java.time.Duration;
+import java.time.Instant;
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
-function InterestRateCycle() {
-  const [submitted, setSubmitted] = useState(false);
+@Service
+public class MultiAppHealthTracker {
 
-  return (
-    <Formik
-      initialValues={{
-        startDate: '',
-        endDate: '',
-        interestPaymentAmount: '',
-      }}
-      validationSchema={validationSchema}
-      onSubmit={() => setSubmitted(true)}
-    >
-      {({ setFieldValue, values }) => (
-        <Form>
-          <div className="mb-3">
-            <label>Start Date</label>
-            <DatePicker
-              selected={values.startDate ? new Date(values.startDate) : null}
-              onChange={date => setFieldValue('startDate', date)}
-              className="form-control"
-              dateFormat="yyyy-MM-dd"
-              placeholderText="YYYY-MM-DD"
-              title="Enter or select the Start Date for Cycle"
-            />
-            <ErrorMessage name="startDate" component="div" className="text-danger" />
-          </div>
+    private static final long TIMEOUT_MS = 30_000;
 
-          <div className="mb-3">
-            <label>End Date</label>
-            <DatePicker
-              selected={values.endDate ? new Date(values.endDate) : null}
-              onChange={date => setFieldValue('endDate', date)}
-              className="form-control"
-              dateFormat="yyyy-MM-dd"
-              placeholderText="YYYY-MM-DD"
-              title="Enter or select the End Date for Cycle"
-            />
-            <ErrorMessage name="endDate" component="div" className="text-danger" />
-          </div>
+    private final Map<ExternalApp, AppHealthState> states = new ConcurrentHashMap<>();
+    private final Map<String, ExternalApp> correlationToApp = new ConcurrentHashMap<>();
 
-          <div className="mb-3">
-            <label>Interest Payment Amount Reported by the Fed</label>
-            <Field
-              name="interestPaymentAmount"
-              type="text"
-              className="form-control"
-              title="Enter the Interest Payment Amount in digit and decimal format (e.g., 12345.67)"
-            />
-            <ErrorMessage name="interestPaymentAmount" component="div" className="text-danger" />
-          </div>
+    public MultiAppHealthTracker() {
+        for (ExternalApp app : ExternalApp.values()) {
+            states.put(app, new AppHealthState());
+        }
+    }
 
-          <button type="submit" className="btn btn-primary">Recalculate and Resend</button>
+    public String markPingSent(ExternalApp app) {
+        String correlationId = UUID.randomUUID().toString();
 
-          {submitted && (
-            <div className="mt-3 text-success">Request has been submitted</div>
-          )}
-        </Form>
-      )}
-    </Formik>
-  );
+        AppHealthState state = states.get(app);
+        state.setStatus(HealthStatus.PENDING);
+        state.setLastPingSentAt(Instant.now());
+        state.setLastCorrelationId(correlationId);
+        state.setLastError(null);
+
+        correlationToApp.put(correlationId, app);
+        return correlationId;
+    }
+
+    public void markResponseReceived(String correlationId) {
+        ExternalApp app = correlationToApp.remove(correlationId);
+        if (app == null) {
+            return;
+        }
+
+        AppHealthState state = states.get(app);
+        state.setStatus(HealthStatus.UP);
+        state.setLastResponseAt(Instant.now());
+        state.setLastError(null);
+    }
+
+    public void markFailure(ExternalApp app, String error) {
+        AppHealthState state = states.get(app);
+        state.setStatus(HealthStatus.DOWN);
+        state.setLastError(error);
+    }
+
+    public Map<ExternalApp, AppHealthState> getAllStates() {
+        evaluateTimeouts();
+        return new EnumMap<>(states);
+    }
+
+    public AppHealthState getState(ExternalApp app) {
+        evaluateTimeouts();
+        return states.get(app);
+    }
+
+    private void evaluateTimeouts() {
+        Instant now = Instant.now();
+
+        for (Map.Entry<ExternalApp, AppHealthState> entry : states.entrySet()) {
+            AppHealthState state = entry.getValue();
+
+            if (state.getStatus() == HealthStatus.PENDING
+                    && state.getLastPingSentAt() != null
+                    && Duration.between(state.getLastPingSentAt(), now).toMillis() > TIMEOUT_MS) {
+                state.setStatus(HealthStatus.DOWN);
+                state.setLastError("Health check timeout");
+            }
+        }
+    }
 }
 
-export default InterestRateCycle;
+
+import java.time.Instant;
+
+public class AppHealthState {
+    private HealthStatus status = HealthStatus.UNKNOWN;
+    private Instant lastPingSentAt;
+    private Instant lastResponseAt;
+    private String lastCorrelationId;
+    private String lastError;
+
+    public HealthStatus getStatus() { return status; }
+    public void setStatus(HealthStatus status) { this.status = status; }
+
+    public Instant getLastPingSentAt() { return lastPingSentAt; }
+    public void setLastPingSentAt(Instant lastPingSentAt) { this.lastPingSentAt = lastPingSentAt; }
+
+    public Instant getLastResponseAt() { return lastResponseAt; }
+    public void setLastResponseAt(Instant lastResponseAt) { this.lastResponseAt = lastResponseAt; }
+
+    public String getLastCorrelationId() { return lastCorrelationId; }
+    public void setLastCorrelationId(String lastCorrelationId) { this.lastCorrelationId = lastCorrelationId; }
+
+    public String getLastError() { return lastError; }
+    public void setLastError(String lastError) { this.lastError = lastError; }
+}
+
+import org.springframework.stereotype.Service;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Service
+public class MultiAppHealthTracker {
+
+    private static final long TIMEOUT_MS = 30_000;
+
+    private final Map<ExternalApp, AppHealthState> states = new ConcurrentHashMap<>();
+    private final Map<String, ExternalApp> correlationToApp = new ConcurrentHashMap<>();
+
+    public MultiAppHealthTracker() {
+        for (ExternalApp app : ExternalApp.values()) {
+            states.put(app, new AppHealthState());
+        }
+    }
+
+    public String markPingSent(ExternalApp app) {
+        String correlationId = UUID.randomUUID().toString();
+
+        AppHealthState state = states.get(app);
+        state.setStatus(HealthStatus.PENDING);
+        state.setLastPingSentAt(Instant.now());
+        state.setLastCorrelationId(correlationId);
+        state.setLastError(null);
+
+        correlationToApp.put(correlationId, app);
+        return correlationId;
+    }
+
+    public void markResponseReceived(String correlationId) {
+        ExternalApp app = correlationToApp.remove(correlationId);
+        if (app == null) {
+            return;
+        }
+
+        AppHealthState state = states.get(app);
+        state.setStatus(HealthStatus.UP);
+        state.setLastResponseAt(Instant.now());
+        state.setLastError(null);
+    }
+
+    public void markFailure(ExternalApp app, String error) {
+        AppHealthState state = states.get(app);
+        state.setStatus(HealthStatus.DOWN);
+        state.setLastError(error);
+    }
+
+    public Map<ExternalApp, AppHealthState> getAllStates() {
+        evaluateTimeouts();
+        return new EnumMap<>(states);
+    }
+
+    public AppHealthState getState(ExternalApp app) {
+        evaluateTimeouts();
+        return states.get(app);
+    }
+
+    private void evaluateTimeouts() {
+        Instant now = Instant.now();
+
+        for (Map.Entry<ExternalApp, AppHealthState> entry : states.entrySet()) {
+            AppHealthState state = entry.getValue();
+
+            if (state.getStatus() == HealthStatus.PENDING
+                    && state.getLastPingSentAt() != null
+                    && Duration.between(state.getLastPingSentAt(), now).toMillis() > TIMEOUT_MS) {
+                state.setStatus(HealthStatus.DOWN);
+                state.setLastError("Health check timeout");
+            }
+        }
+    }
+}
+
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+@Component
+public class HealthCheckScheduler {
+
+    private final MultiAppHealthTracker tracker;
+    private final HealthCheckSender sender;
+
+    public HealthCheckScheduler(MultiAppHealthTracker tracker, HealthCheckSender sender) {
+        this.tracker = tracker;
+        this.sender = sender;
+    }
+
+    @Scheduled(fixedDelay = 300000, initialDelay = 10000)
+    public void runHealthChecks() {
+        sendOne(ExternalApp.APP1);
+        sendOne(ExternalApp.APP2);
+        sendOne(ExternalApp.APP3);
+    }
+
+    private void sendOne(ExternalApp app) {
+        String correlationId = tracker.markPingSent(app);
+        try {
+            sender.sendHealthCheck(app, correlationId);
+        } catch (Exception e) {
+            tracker.markFailure(app, "Send failed: " + e.getMessage());
+        }
+    }
+}
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
+
+@RestController
+public class HealthController {
+
+    private final MultiAppHealthTracker tracker;
+
+    public HealthController(MultiAppHealthTracker tracker) {
+        this.tracker = tracker;
+    }
+
+    @GetMapping("/api/external-health")
+    public Map<ExternalApp, AppHealthState> getHealth() {
+        return tracker.getAllStates();
+    }
+}
+
+
