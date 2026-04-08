@@ -236,3 +236,30 @@ public class HealthController {
 }
 
 
+import jakarta.jms.Message;
+import org.springframework.jms.annotation.JmsListener;
+import org.springframework.stereotype.Component;
+
+@Component
+public class IncomingMessageListener {
+
+    private final MultiAppHealthTracker tracker;
+
+    public IncomingMessageListener(MultiAppHealthTracker tracker) {
+        this.tracker = tracker;
+    }
+
+    @JmsListener(destination = "INCOMING.RESPONSE.Q")
+    public void onMessage(Message message) throws Exception {
+        String messageType = message.getStringProperty("messageType");
+
+        if ("HEALTH_CHECK_RESPONSE".equals(messageType)) {
+            String correlationId = message.getJMSCorrelationID();
+            tracker.markResponseReceived(correlationId);
+            return;
+        }
+
+        // normal message handling here
+    }
+}
+
